@@ -1,0 +1,3 @@
+[submodule "NearestNeighbors.jl.git"]
+	path = NearestNeighbors.jl
+	url = https://github.com/dpshorten/NearestNeighbors.jl.git
