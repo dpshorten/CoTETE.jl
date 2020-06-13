@@ -1,9 +1,12 @@
 module CoTETE
 
+push!(LOAD_PATH,"NearestNeighbors.jl/src/NearestNeighbors.jl")
+
+
 using Distances: evaluate, colwise, Metric, Chebyshev, Euclidean
 using SpecialFunctions: digamma, gamma
 
-include("NearestNeighbors.jl/src/NearestNeighbors.jl")
+#include("NearestNeighbors.jl/src/NearestNeighbors.jl")
 include("preprocessing.jl")
 
 function do_preprocessing_and_calculate_TE(
@@ -59,7 +62,11 @@ function do_preprocessing_and_calculate_TE(
 
 end
 
+"""
+    foo()
 
+    Returns the TE.
+"""
 function calculate_TE(
     representation_joint::Array{<:AbstractFloat},
     representation_conditionals::Array{<:AbstractFloat},
