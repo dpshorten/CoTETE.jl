@@ -3,3 +3,8 @@
 using Documenter, CoTETE
 
 makedocs(sitename="My Documentation")
+
+deploydocs(
+    repo = "github.com/dpshorten/CoTETE.jl.git",
+    target = "build",
+)
