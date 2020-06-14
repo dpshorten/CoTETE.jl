@@ -8,10 +8,11 @@ Continuous-Time Event-based Transfer Entropy
 
 [Install Julia](https://julialang.org/downloads/)
 
-Clone this repo
+Clone this repo (make sure to include the --recurse-submodules flag so that the modified nearest neighbors
+package gets included).
 
 ```console
-david@home:~$ git clone https://github.com/dpshorten/CoTETE.jl.git
+david@home:~$ git clone --recurse-submodules https://github.com/dpshorten/CoTETE.jl.git
 ```
 
 make sure that CoTETE.jl/src/ is on your JULIA_LOAD_PATH. eg:
@@ -38,10 +39,10 @@ julia> Pkg.add("SpecialFunctions")
 Let's now create a source and a target as homogeneous Poisson processes, each with 1000 events.
 
 ```julia
-julia> source = 1e3*rand(Int(1e3))
-julia> sort!(source)
-julia> target = 1e3*rand(Int(1e3))
-julia> sort!(target)
+julia> source = 1e3*rand(Int(1e3));
+julia> sort!(source);
+julia> target = 1e3*rand(Int(1e3));
+julia> sort!(target);
 ```
 
 We can now estimate the TE between these processes, with history embeddings of length 1.
@@ -50,3 +51,5 @@ We can now estimate the TE between these processes, with history embeddings of l
 julia> import CoTETE
 julia> CoTETE.do_preprocessing_and_calculate_TE(target, source, 1, 1, start_event = 10)
 ```
+
+The answer should be close to 0.
