@@ -10,8 +10,8 @@ Continuous-Time Event-based Transfer Entropy
 
 Clone this repo
 
-```
-> git clone https://github.com/dpshorten/CoTETE.jl.git
+```console
+:~$ git clone https://github.com/dpshorten/CoTETE.jl.git
 ```
 
 make sure that CoTETE.jl/src/ is o
