@@ -29,5 +29,24 @@ david@home:~$ julia
 You will need to add three prerequisite packages.
 
 ```julia
-> import Pkg
+julia> import Pkg
+julia> Pkg.add("Distances")
+julia> Pkg.add("StaticArrays")
+julia> Pkg.add("SpecialFunctions")
+```
+
+Let's now create a source and a target as homogeneous Poisson processes, each with 1000 events.
+
+```julia
+julia> source = 1e3*rand(Int(1e3))
+julia> sort!(source)
+julia> target = 1e3*rand(Int(1e3))
+julia> sort!(target)
+```
+
+We can now estimate the TE between these processes, with history embeddings of length 1.
+
+```julia
+julia> import CoTETE
+julia> CoTETE.do_preprocessing_and_calculate_TE(target, source, 1, 1, start_event = 10)
 ```
