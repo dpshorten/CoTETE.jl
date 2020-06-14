@@ -14,6 +14,20 @@ Clone this repo
 david@home:~$ git clone https://github.com/dpshorten/CoTETE.jl.git
 ```
 
-make sure that CoTETE.jl/src/ is o
+make sure that CoTETE.jl/src/ is on your JULIA_LOAD_PATH. eg:
+
+```console
+david@home:~$ export JULIA_LOAD_PATH=:/home/david/CoTETE.jl/src/
+```
+
+Fire up the Julia REPL
+
+```console
+david@home:~$ julia
+```
 
 You will need to add three prerequisite packages.
+
+```julia
+> import Pkg
+```
