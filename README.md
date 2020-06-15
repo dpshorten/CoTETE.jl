@@ -30,14 +30,19 @@ david@home:~$ julia
 You will need to add three prerequisite packages.
 
 ```julia
-julia> import Pkg; Pkg.add("Distances"); Pkg.add("StaticArrays"); Pkg.add("SpecialFunctions")
+julia> import Pkg
+julia> Pkg.add("Distances")
+julia> Pkg.add("StaticArrays")
+julia> Pkg.add("SpecialFunctions")
 ```
 
 Let's now create a source and a target as homogeneous Poisson processes, each with 1000 events.
 
 ```julia
-julia> source = 1e3*rand(Int(1e3)); sort!(source);
-julia> target = 1e3*rand(Int(1e3)); sort!(target);
+julia> source = 1e3*rand(Int(1e3));
+julia> sort!(source);
+julia> target = 1e3*rand(Int(1e3));
+julia> sort!(target);
 ```
 
 We can now estimate the TE between these processes, with history embeddings of length 1.
