@@ -71,7 +71,7 @@ julia> sort!(source);
 
 We then run the thinning algorithm on the target.
 
-```
+```julia
 julia> function thin_target(source, target, target_rate)
            # Remove target events occurring before first source
     	   start_index = 1
