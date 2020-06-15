@@ -6,9 +6,28 @@ push!(LOAD_PATH,"NearestNeighbors.jl/src/NearestNeighbors.jl")
 using Distances: evaluate, colwise, Metric, Chebyshev, Euclidean
 using SpecialFunctions: digamma, gamma
 
-#include("NearestNeighbors.jl/src/NearestNeighbors.jl")
 include("preprocessing.jl")
 
+"""
+    function do_preprocessing_and_calculate_TE(
+        target_events::Array{<:AbstractFloat},
+        source_events::Array{<:AbstractFloat},
+        d_x::Integer,
+        d_y::Integer;
+        start_event::Integer = min(d_x, d_y),
+        num_target_events::Integer = length(target_events) - start_event,
+        num_samples::Integer = num_target_events,
+        k::Integer = 5,
+        conditioning_events::Array{<:AbstractFloat} = [0.0],
+        d_c::Integer = 0,
+        metric::Metric = Euclidean(),
+        is_surrogate::Bool = false,
+        surrogate_upsample_ratio::AbstractFloat = 2.1,
+        k_perm::Integer = 5,
+        )
+
+    Returns the TE.
+"""
 function do_preprocessing_and_calculate_TE(
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat},
@@ -17,7 +36,7 @@ function do_preprocessing_and_calculate_TE(
     start_event::Integer = min(d_x, d_y),
     num_target_events::Integer = length(target_events) - start_event,
     num_samples::Integer = num_target_events,
-    k::Integer = 4,
+    k::Integer = 5,
     conditioning_events::Array{<:AbstractFloat} = [0.0],
     d_c::Integer = 0,
     metric::Metric = Euclidean(),
