@@ -65,8 +65,8 @@ We create the target as an homogeneous Poisson process with rate 10. This rate h
 achieved by the rate function in our example, so that the thinning algorithm can operate.
 
 ```julia
-julia> source = 1e3*rand(Int(1e4));
-julia> sort!(source);
+julia> target = 1e3*rand(Int(1e4));
+julia> sort!(target);
 ```
 
 We then run the thinning algorithm on the target.
