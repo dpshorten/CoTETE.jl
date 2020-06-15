@@ -2,6 +2,9 @@
 
 Continuous-Time Event-based Transfer Entropy
 
+This package allows one to estimate the transfer entropy between event-based time series (such as spike trains or social media post times) in continuous time
+(that is, without discretising time into bins). 
+
 [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
 
 ## Getting Started
@@ -105,6 +108,8 @@ julia> CoTETE.do_preprocessing_and_calculate_TE(target, source, 1, 1, start_even
 The answer should be close to 0.5.
 
 For both of these examples, increasing the number of events in the processes will give estimates closer to the true value.
+
+
 
 
 [1] Spinney, R. E., Prokopenko, M., & Lizier, J. T. (2017). Transfer entropy in continuous time, with applications to jump and neural spiking processes. Physical Review E, 95(3), 032319.
