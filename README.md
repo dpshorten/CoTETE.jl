@@ -94,7 +94,7 @@ julia> function thin_target(source, target, target_rate)
            end
     	   return new_target
        end
-julia> target = thin_target(source, target, target_rate)
+julia> target = thin_target(source, target, 10);
 ```
 
 We can now estimate the TE
