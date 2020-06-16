@@ -7,6 +7,8 @@ This package allows one to estimate the transfer entropy between event-based tim
 
 [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
 
+If you have any issues using this software, please add an issue here on github, or email me at david.shorten@sydney.edu.au
+
 ## Getting Started
 
 [Install Julia](https://julialang.org/downloads/)
