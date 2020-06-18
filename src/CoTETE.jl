@@ -14,15 +14,16 @@ include("preprocessing.jl")
         source_events::Array{<:AbstractFloat},
         l_x::Integer,
         l_y::Integer;
-        start_event::Integer
+        auto_find_start_and_num_events::Bool = true,
+        start_event::Integer = 1,
         num_target_events::Integer = length(target_events) - start_event,
-        num_samples::Integer = num_target_events,
+        num_samples_ratio::AbstractFloat = 1.0,
         k::Integer = 5,
         conditioning_events::Array{<:AbstractFloat} = [0.0],
         l_z::Integer = 0,
         metric::Metric = Euclidean(),
         is_surrogate::Bool = false,
-        surrogate_upsample_ratio::AbstractFloat = 2.1,
+        surrogate_num_samples_ratio::AbstractFloat = 1.0,
         k_perm::Integer = 5,
         )
 
@@ -30,6 +31,21 @@ include("preprocessing.jl")
 
     # Arguments
     - `target_events::Array{<:AbstractFloat}`: A list of the raw event times in the target process.
+    - `source_events::Array{<:AbstractFloat}`: A list of the raw event times in the source.
+    - `l_x::Integer`: The number of intervals in the target process to use in the history embeddings.
+    - `l_y::Integer`: The number of intervals in the source process to use in the history embeddings.
+    - `auto_find_start_and_num_events::Bool = true`:
+    - `start_event::Integer = 1`:
+    - `num_target_events::Integer = length(target_events) - start_event`:
+    - `num_samples_ratio::AbstractFloat = 1.0`:
+    - `k::Integer = 5`:
+    - `conditioning_events::Array{<:AbstractFloat} = [0.0]`:
+    - `l_z::Integer = 0`:
+    - `metric::Metric = Euclidean()`:
+    - `is_surrogate::Bool = false`:
+    - `surrogate_num_samples_ratio::AbstractFloat = 1.0`:
+    - `k_perm::Integer = 5`:
+
 """
 function calculate_TE_from_event_times(
     target_events::Array{<:AbstractFloat},
