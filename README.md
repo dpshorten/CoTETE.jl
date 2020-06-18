@@ -93,7 +93,7 @@ julia> function thin_target(source, target, target_rate)
                end
                distance_to_last_source = event - source[index_of_last_source]
                λ = 0.5 + 5exp(-50(distance_to_last_source - 0.5)^2) - 5exp(-50(-0.5)^2)
-               if rand() < target_rate/10
+               if rand() < λ/target_rate
                	  push!(new_target, event)
                end
            end
@@ -105,7 +105,7 @@ julia> target = thin_target(source, target, 10);
 We can now estimate the TE
 
 ```julia
-julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1, start_event = 10)
+julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
 ```
 The answer should be close to 0.5.
 
