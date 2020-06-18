@@ -9,7 +9,7 @@ using SpecialFunctions: digamma, gamma
 include("preprocessing.jl")
 
 """
-    function do_preprocessing_and_calculate_TE(
+    function calculate_TE_from_event_times(
         target_events::Array{<:AbstractFloat},
         source_events::Array{<:AbstractFloat},
         d_x::Integer,
@@ -28,12 +28,13 @@ include("preprocessing.jl")
 
     Returns the TE.
 """
-function do_preprocessing_and_calculate_TE(
+function calculate_TE_from_event_times(
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat},
     d_x::Integer,
     d_y::Integer;
-    start_event::Integer = min(d_x, d_y),
+    
+    start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples::Integer = num_target_events,
     k::Integer = 5,
@@ -41,7 +42,7 @@ function do_preprocessing_and_calculate_TE(
     d_c::Integer = 0,
     metric::Metric = Euclidean(),
     is_surrogate::Bool = false,
-    surrogate_upsample_ratio::AbstractFloat = 2.1,
+    surrogate_upsample_ratio::AbstractFloat = 1,
     k_perm::Integer = 5,
 )
 

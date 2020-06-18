@@ -53,7 +53,7 @@ We can now estimate the TE between these processes, with history embeddings of l
 
 ```julia
 julia> import CoTETE
-julia> CoTETE.do_preprocessing_and_calculate_TE(target, source, 1, 1, start_event = 10)
+julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1, start_event = 10)
 ```
 
 The answer should be close to 0.
@@ -105,7 +105,7 @@ julia> target = thin_target(source, target, 10);
 We can now estimate the TE
 
 ```julia
-julia> CoTETE.do_preprocessing_and_calculate_TE(target, source, 1, 1, start_event = 10)
+julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1, start_event = 10)
 ```
 The answer should be close to 0.5.
 
