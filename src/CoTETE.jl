@@ -26,7 +26,7 @@ include("preprocessing.jl")
         k_perm::Integer = 5,
         )
 
-    Returns the TE.
+    Estimates the TE from lists of raw event times. 
 
     # Arguments
     - `target_events::Array{<:AbstractFloat}`: A list of the raw event times in the target process.
