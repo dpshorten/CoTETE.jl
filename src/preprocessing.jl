@@ -68,13 +68,13 @@ function make_surrogate(
     dense_sampled_representation_joint::Array{<:AbstractFloat},
     dense_sampled_joint_exclusion_windows::Array{<:AbstractFloat},
     metric::Metric,
-    d_x_plus_d_c::Integer,
+    l_x_plus_l_z::Integer,
     k_perm::Integer,
 )
 
     added_exclusion_windows = zeros(size(joint_exclusion_windows))
 
-    tree = NearestNeighbors.KDTree(dense_sampled_representation_joint[1:d_x_plus_d_c, :], metric, reorder = false)
+    tree = NearestNeighbors.KDTree(dense_sampled_representation_joint[1:l_x_plus_l_z, :], metric, reorder = false)
 
     new_joint = copy(representation_joint)
     permutation = shuffle(collect(1:size(new_joint, 2)))
@@ -82,7 +82,7 @@ function make_surrogate(
     for i = 1:size(permutation, 1)
         neighbour_indices, neighbour_radii = NearestNeighbors.knn(
             tree,
-            new_joint[1:d_x_plus_d_c, permutation[i]],
+            new_joint[1:l_x_plus_l_z, permutation[i]],
             joint_exclusion_windows[:, :, permutation[i]],
             dense_sampled_joint_exclusion_windows,
             k_perm,
@@ -94,8 +94,8 @@ function make_surrogate(
             index = neighbour_indices[rand(1:end)]
         end
         used_indices[i] = index
-        new_joint[(d_x_plus_d_c+1):end, permutation[i]] =
-            dense_sampled_representation_joint[(d_x_plus_d_c+1):end, index]
+        new_joint[(l_x_plus_l_z+1):end, permutation[i]] =
+            dense_sampled_representation_joint[(l_x_plus_l_z+1):end, index]
         added_exclusion_windows[1, :, permutation[i]] = dense_sampled_joint_exclusion_windows[1, :, index]
     end
 
@@ -109,15 +109,15 @@ end
 function construct_history_embeddings(
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat},
-    d_x::Integer,
-    d_y::Integer;
+    l_x::Integer,
+    l_y::Integer;
     auto_find_start_and_num_events::Bool = true,
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples_ratio::AbstractFloat = 1.0,
     noise_level::AbstractFloat = 1e-6,
     conditioning_events::Array{<:AbstractFloat} = [0.0],
-    d_c::Integer = 0,
+    l_z::Integer = 0,
     is_surrogate::Bool = false,
     surrogate_num_samples_ratio::AbstractFloat = 1.0,
     k_perm::Integer = 5,
@@ -127,8 +127,8 @@ function construct_history_embeddings(
 
     if auto_find_start_and_num_events
         # This will ensure that we have at least enough events to make the target embedding
-        start_event = d_x + 1
-        while source_events[d_y] > target_events[start_event]
+        start_event = l_x + 1
+        while source_events[l_y] > target_events[start_event]
             start_event += 1
         end
         num_target_events = length(target_events) - start_event
@@ -141,7 +141,7 @@ function construct_history_embeddings(
         start_event,
         num_target_events,
         [target_events, conditioning_events, source_events],
-        [d_x, d_c, d_y],
+        [l_x, l_z, l_y],
     )
 
 
@@ -155,7 +155,7 @@ function construct_history_embeddings(
         1,
         length(sample_points) - 2,
         [target_events, conditioning_events, source_events],
-        [d_x, d_c, d_y],
+        [l_x, l_z, l_y],
     )
 
     if is_surrogate
@@ -170,7 +170,7 @@ function construct_history_embeddings(
             1,
             length(sample_points) - 2,
             [target_events, conditioning_events, source_events],
-            [d_x, d_c, d_y],
+            [l_x, l_z, l_y],
         )
 
         representation_joint, joint_exclusion_windows = make_surrogate(
@@ -179,7 +179,7 @@ function construct_history_embeddings(
             dense_sampled_representation_joint,
             dense_sampled_joint_exclusion_windows,
             metric,
-            d_x + d_c,
+            l_x + l_z,
             k_perm,
         )
 
@@ -188,8 +188,8 @@ function construct_history_embeddings(
 
     sampled_representation_joint += noise_level .* randn(size(sampled_representation_joint))
 
-    representation_conditionals = representation_joint[1:(d_x+d_c), :]
-    sampled_representation_conditionals = sampled_representation_joint[1:(d_x+d_c), :]
+    representation_conditionals = representation_joint[1:(l_x+l_z), :]
+    sampled_representation_conditionals = sampled_representation_joint[1:(l_x+l_z), :]
 
     return (
         representation_joint,

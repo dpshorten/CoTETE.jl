@@ -12,21 +12,21 @@ include("preprocessing.jl")
     function calculate_TE_from_event_times(
         target_events::Array{<:AbstractFloat},
         source_events::Array{<:AbstractFloat},
-        d_x::Integer,
-        d_y::Integer;
+        l_x::Integer,
+        l_y::Integer;
         start_event::Integer
         num_target_events::Integer = length(target_events) - start_event,
         num_samples::Integer = num_target_events,
         k::Integer = 5,
         conditioning_events::Array{<:AbstractFloat} = [0.0],
-        d_c::Integer = 0,
+        l_z::Integer = 0,
         metric::Metric = Euclidean(),
         is_surrogate::Bool = false,
         surrogate_upsample_ratio::AbstractFloat = 2.1,
         k_perm::Integer = 5,
         )
 
-    Estimates the TE from lists of raw event times. 
+    Estimates the TE from lists of raw event times.
 
     # Arguments
     - `target_events::Array{<:AbstractFloat}`: A list of the raw event times in the target process.
@@ -34,15 +34,15 @@ include("preprocessing.jl")
 function calculate_TE_from_event_times(
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat},
-    d_x::Integer,
-    d_y::Integer;
+    l_x::Integer,
+    l_y::Integer;
     auto_find_start_and_num_events::Bool = true,
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples_ratio::AbstractFloat = 1.0,
     k::Integer = 5,
     conditioning_events::Array{<:AbstractFloat} = [0.0],
-    d_c::Integer = 0,
+    l_z::Integer = 0,
     metric::Metric = Euclidean(),
     is_surrogate::Bool = false,
     surrogate_num_samples_ratio::AbstractFloat = 1.0,
@@ -57,14 +57,14 @@ function calculate_TE_from_event_times(
     sampled_representation_conditionals, = CoTETE.construct_history_embeddings(
         target_events,
         source_events,
-        d_x,
-        d_y,
+        l_x,
+        l_y,
         auto_find_start_and_num_events = auto_find_start_and_num_events,
         num_target_events = num_target_events,
         num_samples_ratio = num_samples_ratio,
         start_event = start_event,
         conditioning_events = conditioning_events,
-        d_c = d_c,
+        l_z = l_z,
         is_surrogate = is_surrogate,
         surrogate_num_samples_ratio = surrogate_num_samples_ratio,
         k_perm = k_perm,
@@ -110,10 +110,10 @@ function calculate_TE(
 
     tree_conditionals = NearestNeighbors.KDTree(representation_conditionals, metric, reorder = false)
 
-    tree_sampled_conditionals = NearestNeighbors.KDTree(sampled_representation_conditionals, metric, reorder = false)
+    tree_samplel_zonditionals = NearestNeighbors.KDTree(sampled_representation_conditionals, metric, reorder = false)
 
-    d_y = size(representation_joint, 1) - size(representation_conditionals, 1)
-    d_x = size(representation_conditionals, 1)
+    l_y = size(representation_joint, 1) - size(representation_conditionals, 1)
+    l_x = size(representation_conditionals, 1)
 
     TE = 0
     for i = 1:size(representation_joint, 2)
@@ -143,15 +143,15 @@ function calculate_TE(
             k,
         )
 
-        indices_sampled_conditionals, radii_sampled_conditionals = NearestNeighbors.knn(
-            tree_sampled_conditionals,
+        indices_samplel_zonditionals, radii_samplel_zonditionals = NearestNeighbors.knn(
+            tree_samplel_zonditionals,
             representation_conditionals[:, i],
             joint_exclusion_windows[:, :, i],
             sampled_joint_exclusion_windows,
             k,
         )
 
-        radius_conditionals = max(maximum(radii_conditionals), maximum(radii_sampled_conditionals)) + 1e-6
+        radius_conditionals = max(maximum(radii_conditionals), maximum(radii_samplel_zonditionals)) + 1e-6
 
         indices_joint = NearestNeighbors.inrange(
             tree_joint,
@@ -177,8 +177,8 @@ function calculate_TE(
             radius_conditionals,
         )
 
-        indices_sampled_conditionals = NearestNeighbors.inrange(
-            tree_sampled_conditionals,
+        indices_samplel_zonditionals = NearestNeighbors.inrange(
+            tree_samplel_zonditionals,
             representation_conditionals[:, i],
             joint_exclusion_windows[:, :, i],
             sampled_joint_exclusion_windows,
@@ -193,18 +193,18 @@ function calculate_TE(
             representation_conditionals[:, i],
             representation_conditionals[:, indices_conditionals],
         ))
-        radius_sampled_conditionals = maximum(colwise(
+        radius_samplel_zonditionals = maximum(colwise(
             metric,
             representation_conditionals[:, i],
-            sampled_representation_conditionals[:, indices_sampled_conditionals],
+            sampled_representation_conditionals[:, indices_samplel_zonditionals],
         ))
 
         TE += (
-            -(d_x + d_y) * log(2 * radius_joint) +
-            (d_x + d_y) * log(2 * radius_sampled_joint) +
-            (d_x) * log(2 * radius_conditionals) - (d_x) * log(2 * radius_sampled_conditionals) +
+            -(l_x + l_y) * log(2 * radius_joint) +
+            (l_x + l_y) * log(2 * radius_sampled_joint) +
+            (l_x) * log(2 * radius_conditionals) - (l_x) * log(2 * radius_samplel_zonditionals) +
             digamma(size(indices_joint)[1]) - digamma(size(indices_sampled_joint)[1]) -
-            digamma(size(indices_conditionals)[1]) + digamma(size(indices_sampled_conditionals)[1])
+            digamma(size(indices_conditionals)[1]) + digamma(size(indices_samplel_zonditionals)[1])
         )
 
     end
