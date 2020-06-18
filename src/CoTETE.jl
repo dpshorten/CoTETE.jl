@@ -14,7 +14,7 @@ include("preprocessing.jl")
         source_events::Array{<:AbstractFloat},
         d_x::Integer,
         d_y::Integer;
-        start_event::Integer = min(d_x, d_y),
+        start_event::Integer
         num_target_events::Integer = length(target_events) - start_event,
         num_samples::Integer = num_target_events,
         k::Integer = 5,
@@ -27,6 +27,9 @@ include("preprocessing.jl")
         )
 
     Returns the TE.
+
+    # Arguments
+    - `target_events::Array{<:AbstractFloat}`: A list of the raw event times in the target process.
 """
 function calculate_TE_from_event_times(
     target_events::Array{<:AbstractFloat},
