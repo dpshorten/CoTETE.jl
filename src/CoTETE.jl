@@ -33,7 +33,7 @@ function calculate_TE_from_event_times(
     source_events::Array{<:AbstractFloat},
     d_x::Integer,
     d_y::Integer;
-    
+    auto_find_start_and_num_events::Bool = true,
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples::Integer = num_target_events,
@@ -42,7 +42,7 @@ function calculate_TE_from_event_times(
     d_c::Integer = 0,
     metric::Metric = Euclidean(),
     is_surrogate::Bool = false,
-    surrogate_upsample_ratio::AbstractFloat = 1,
+    surrogate_upsample_ratio::AbstractFloat = 1.0,
     k_perm::Integer = 5,
 )
 
@@ -56,6 +56,7 @@ function calculate_TE_from_event_times(
         source_events,
         d_x,
         d_y,
+        auto_find_start_and_num_events = auto_find_start_and_num_events,
         num_target_events = num_target_events,
         num_samples = num_samples,
         start_event = start_event,

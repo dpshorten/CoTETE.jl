@@ -3,7 +3,7 @@
 Continuous-Time Event-based Transfer Entropy
 
 This package allows one to estimate the transfer entropy between event-based time series (such as spike trains or social media post times) in continuous time
-(that is, without discretising time into bins). 
+(that is, without discretising time into bins).
 
 [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
 
@@ -84,7 +84,7 @@ julia> function thin_target(source, target, target_rate)
            	 start_index += 1
     	   end
     	   target = target[start_index:end]
-    
+
 	   new_target = Float64[]
     	   index_of_last_source = 1
     	   for event in target
@@ -93,7 +93,7 @@ julia> function thin_target(source, target, target_rate)
                end
                distance_to_last_source = event - source[index_of_last_source]
                λ = 0.5 + 5exp(-50(distance_to_last_source - 0.5)^2) - 5exp(-50(-0.5)^2)
-               if rand() < λ/10
+               if rand() < target_rate/10
                	  push!(new_target, event)
                end
            end

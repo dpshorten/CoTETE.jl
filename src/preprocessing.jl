@@ -111,7 +111,8 @@ function construct_history_embeddings(
     source_events::Array{<:AbstractFloat},
     d_x::Integer,
     d_y::Integer;
-    start_event::Integer = min(d_x, d_y),
+    auto_find_start_and_num_events::Bool = true,
+    start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples::Integer = num_target_events,
     noise_level::AbstractFloat = 1e-6,
@@ -123,6 +124,15 @@ function construct_history_embeddings(
     metric = Euclidean(),
 )
 
+    if auto_find_start_and_num_events
+        # This will ensure that we have at least enough events to make the target embedding
+        start_event = d_x + 1
+        while source_events[d_y] > target_events[start_event]
+            start_event += 1
+        end
+        num_target_events = length(target_events) - start_event
+    end
+
     representation_joint, joint_exclusion_windows = make_embeddings_along_time_points(
         target_events,
         start_event,
@@ -131,25 +141,7 @@ function construct_history_embeddings(
         [d_x, d_c, d_y],
     )
 
-    # sample_points = collect(
-    #     joint_exclusion_windows[1, 1, 1]:((joint_exclusion_windows[
-    #         1,
-    #         2,
-    #         end,
-    #     ]-joint_exclusion_windows[1, 1, 1])/Float64(num_samples)):(joint_exclusion_windows[
-    #         1,
-    #         1,
-    #         1,
-    #     ]+((joint_exclusion_windows[1, 2, end]-joint_exclusion_windows[1, 1, 1])/2)),
-    # )
 
-    # sample_points = collect(
-    #     joint_exclusion_windows[1, 1, 1]:((joint_exclusion_windows[
-    #         1,
-    #         2,
-    #         end,
-    #     ]-joint_exclusion_windows[1, 1, 1])/Float64(num_samples)):joint_exclusion_windows[1, 2, end],
-    # )
     sample_points =
         joint_exclusion_windows[1, 2, 1] .+
         (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .* rand(num_samples)
@@ -165,13 +157,6 @@ function construct_history_embeddings(
 
     if is_surrogate
 
-        # dense_sample_points = collect(
-        # joint_exclusion_windows[1, 1, 1]:((joint_exclusion_windows[
-        #     1,
-        #     2,
-        #     end,
-        # ]-joint_exclusion_windows[1, 1, 1])/Float64(surrogate_upsample_ratio * num_samples)):joint_exclusion_windows[1, 2, end],
-        # )
         dense_sample_points =
             joint_exclusion_windows[1, 2, 1] .+
             (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .*
@@ -195,10 +180,6 @@ function construct_history_embeddings(
             k_perm,
         )
 
-        # added_exclusion_windows_sampled = zeros(size(sampled_joint_exclusion_windows))
-        # permutation =  shuffle(collect(1:size(sampled_joint_exclusion_windows, 3))
-        # added_exclusion_windows_sampled[1, :, permutation] = sampled_joint_exclusion_windows[1, :, collect(1:size(sampled_joint_exclusion_windows, 3)]
-        # sampled_joint_exclusion_windows = vcat(sampled_joint_exclusion_windows, added_exclusion_windows_sampled)
     end
 
 
