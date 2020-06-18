@@ -1,9 +1,9 @@
 # CoTETE.jl Documentation
 
 ```@meta
-CurrentModule = CoTETE	
+CurrentModule = CoTETE
 ```
 
 ```@docs
-calculate_TE
+calculate_TE_from_event_times
 ```
