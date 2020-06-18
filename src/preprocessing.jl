@@ -114,15 +114,16 @@ function construct_history_embeddings(
     auto_find_start_and_num_events::Bool = true,
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
-    num_samples::Integer = num_target_events,
+    num_samples_ratio::AbstractFloat = 1.0,
     noise_level::AbstractFloat = 1e-6,
     conditioning_events::Array{<:AbstractFloat} = [0.0],
     d_c::Integer = 0,
     is_surrogate::Bool = false,
-    surrogate_upsample_ratio::AbstractFloat = 2.1,
+    surrogate_num_samples_ratio::AbstractFloat = 1.0,
     k_perm::Integer = 5,
     metric = Euclidean(),
 )
+
 
     if auto_find_start_and_num_events
         # This will ensure that we have at least enough events to make the target embedding
@@ -132,6 +133,8 @@ function construct_history_embeddings(
         end
         num_target_events = length(target_events) - start_event
     end
+
+    num_samples = Int(round(num_samples_ratio * num_target_events))
 
     representation_joint, joint_exclusion_windows = make_embeddings_along_time_points(
         target_events,
@@ -156,7 +159,7 @@ function construct_history_embeddings(
     )
 
     if is_surrogate
-
+        surrogate_num_samples = Int(round(surrogate_num_samples_ratio * num_target_events))
         dense_sample_points =
             joint_exclusion_windows[1, 2, 1] .+
             (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .*
