@@ -117,4 +117,5 @@ For both of these examples, increasing the number of events in the processes wil
 
 
 [1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2020). [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377). bioRxiv 2020.06.16.154377.
+
 [2] Spinney, R. E., Prokopenko, M., & Lizier, J. T. (2017). [Transfer entropy in continuous time, with applications to jump and neural spiking processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3), 032319.
