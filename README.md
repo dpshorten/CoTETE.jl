@@ -42,13 +42,14 @@ julia> Pkg.add("Distances")
 julia> Pkg.add("StaticArrays")
 julia> Pkg.add("SpecialFunctions")
 ```
-
-Let's now create a source and a target as homogeneous Poisson processes, each with 1000 events and with rate 1.
+For the first example, lets estimate the TE between uncoupled homogeneous Poisson processes. This
+is covered in section II A of [^1].
+We first create the source and target processes, each with 10 000 events and with rate 1.
 
 ```julia
-julia> source = 1e3*rand(Int(1e3));
+julia> source = 1e4*rand(Int(1e4));
 julia> sort!(source);
-julia> target = 1e3*rand(Int(1e3));
+julia> target = 1e4*rand(Int(1e4));
 julia> sort!(target);
 ```
 
@@ -62,7 +63,8 @@ julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
 The answer should be close to 0.
 
 Let's apply the estimator to a more complex problem. We shall simulate the process described as example B
-in [1]. We create the source process as before
+in [1]. The application of the estimator to this example is covered in section II B of [^1].
+We create the source process as before
 
 ```julia
 julia> source = 1e3*rand(Int(1e3));
@@ -116,6 +118,6 @@ For both of these examples, increasing the number of events in the processes wil
 
 
 
-[1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2020). [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377). bioRxiv 2020.06.16.154377.
+[^1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2020). [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377). bioRxiv 2020.06.16.154377.
 
-[2] Spinney, R. E., Prokopenko, M., & Lizier, J. T. (2017). [Transfer entropy in continuous time, with applications to jump and neural spiking processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3), 032319.
+[^2] Spinney, R. E., Prokopenko, M., & Lizier, J. T. (2017). [Transfer entropy in continuous time, with applications to jump and neural spiking processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3), 032319.
