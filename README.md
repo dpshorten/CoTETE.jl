@@ -5,6 +5,9 @@ Continuous-Time Event-based Transfer Entropy
 This package allows one to estimate the transfer entropy between event-based time series (such as spike trains or social media post times) in continuous time
 (that is, without discretising time into bins).
 
+It contains implementations of the estimator and local permutation scheme presented in
+[Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377)
+
 [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
 
 If you have any issues using this software, please add an issue here on github, or email me at david.shorten@sydney.edu.au
