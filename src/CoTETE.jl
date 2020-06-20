@@ -31,7 +31,11 @@ Estimates the TE from lists of raw event times.
 
 # Examples
 
-```jldoctest calculate_TE_from_event_times; filter = r"-?[0-9]+.[0-9]+"
+This example demonstrates estimating the TE between uncoupled homogeneous Poisson processes. This
+is covered in section II A of [^1].
+We first create the source and target processes, each with 10 000 events and with rate 1, before
+running the estimator.
+```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> source = sort(1e4*rand(Int(1e4)));
 
 julia> target = sort(1e4*rand(Int(1e4)));
@@ -44,6 +48,80 @@ julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
 julia> abs(TE - 0) < 0.02 # For Doctesting purposes
 true
 
+```
+
+We can also try increasing the length of the target and source history embeddings
+```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 3, 3)
+0.0
+
+julia> abs(TE - 0) < 0.1 # For Doctesting purposes
+true
+
+```
+
+Let's try some other options
+```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+julia> using Distances: Cityblock
+
+julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 1, 1, k_global = 3,
+                                                 auto_find_start_and_num_events = false,
+                                                 metric = Cityblock())
+0.0
+
+julia> abs(TE - 0) < 0.1 # For Doctesting purposes
+true
+
+```
+
+
+The next example applies the estimator to a more complex problem, specifically, the process
+described as example B in [^2]. The application of the estimator to this example is covered in
+section II B of [^1]. We create the source process as before. Howevever, the target process is
+originally created as an homogeneous Poisson process with rate 10, before a thinning algorithm
+is applied to it, in order to provide the dependence on the source.
+
+```julia calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+julia> source = sort(1e4*rand(Int(1e4)));
+julia> target = sort(1e4*rand(Int(1e5)));
+julia> function thin_target(source, target, target_rate)
+           # Remove target events occurring before first source
+    	   start_index = 1
+    	   while target[start_index] < source[1]
+           	 start_index += 1
+    	   end
+    	   target = target[start_index:end]
+
+	   new_target = Float64[]
+    	   index_of_last_source = 1
+    	   for event in target
+               while index_of_last_source < length(source) && source[index_of_last_source + 1] < event
+               	     index_of_last_source += 1
+               end
+               distance_to_last_source = event - source[index_of_last_source]
+               λ = 0.5 + 5exp(-50(distance_to_last_source - 0.5)^2) - 5exp(-50(-0.5)^2)
+               if rand() < λ/target_rate
+               	  push!(new_target, event)
+               end
+           end
+    	   return new_target
+       end
+julia> target = thin_target(source, target, 10);
+julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
+0.5076
+
+julia> abs(TE - 0.5076) < 0.05 # For Doctesting purposes
+true
+```
+
+We can also try extending the length of the target embeddings in order to better resolve this
+dependency
+```julia calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 3, 1)
+0.5076
+
+julia> abs(TE - 0.5076) < 0.05 # For Doctesting purposes
+true
 ```
 
 # Arguments
@@ -90,9 +168,13 @@ true
   a replacement embedding in the local permutation scheme.
 
 
-[^1] Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data
-David Shorten, Richard Spinney, Joseph Lizier
-bioRxiv 2020.06.16.154377; doi: https://doi.org/10.1101/2020.06.16.154377
+[^1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2020).
+[Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based
+Data](https://doi.org/10.1101/2020.06.16.154377). bioRxiv 2020.06.16.154377.
+
+[^2] Spinney, R. E., Prokopenko, M., & Lizier, J. T. (2017).
+[Transfer entropy in continuous time, with applications to jump and neural spiking
+processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3), 032319.
 
 """
 function calculate_TE_from_event_times(

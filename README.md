@@ -14,7 +14,7 @@ If you have any issues using this software, please add an issue here on github, 
 
 [Install Julia](https://julialang.org/downloads/)
 
-Clone this repo (make sure to include the --recurse-submodules flag so that the modified nearest neighbors
+Clone this repo (make sure to include the --recurse-submodules flag so that the modified nearest neighbours
 package gets included).
 
 ```console
@@ -45,9 +45,9 @@ is covered in section II A of [1].
 We first create the source and target processes, each with 10 000 events and with rate 1.
 
 ```julia
-julia> source = 1e4*rand(Int(1e4));
+julia> source = 1e3*rand(Int(1e3));
 julia> sort!(source);
-julia> target = 1e4*rand(Int(1e4));
+julia> target = 1e3*rand(Int(1e3));
 julia> sort!(target);
 ```
 
@@ -61,7 +61,7 @@ julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
 The answer should be close to 0.
 
 Let's apply the estimator to a more complex problem. We shall simulate the process described as example B
-in [1]. The application of the estimator to this example is covered in section II B of [1].
+in [2]. The application of the estimator to this example is covered in section II B of [1].
 We create the source process as before
 
 ```julia
