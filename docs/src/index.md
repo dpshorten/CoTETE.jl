@@ -1,4 +1,4 @@
-# CoTETE.jl Documentation
+# Base Functions
 
 ```@meta
 CurrentModule = CoTETE

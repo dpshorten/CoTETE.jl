@@ -1,10 +1,10 @@
 #include("/home/david/CoTETE.jl/src/CoTETE.jl")
 
-using Documenter, CoTETE
+using Documenter, CoTETE, Test
 
-makedocs(sitename="My Documentation")
+doctest(CoTETE)
 
-deploydocs(
-    repo = "github.com/dpshorten/CoTETE.jl.git",
-    target = "build",
+makedocs(
+    sitename="CoTETE.jl",
+    authors="David Shorten",
 )

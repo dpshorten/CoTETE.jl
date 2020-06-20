@@ -18,7 +18,7 @@ include("preprocessing.jl")
         start_event::Integer = 1,
         num_target_events::Integer = length(target_events) - start_event,
         num_samples_ratio::AbstractFloat = 1.0,
-        k::Integer = 5,
+        k_global::Integer = 5,
         conditioning_events::Array{<:AbstractFloat} = [0.0],
         l_z::Integer = 0,
         metric::Metric = Euclidean(),
@@ -28,6 +28,23 @@ include("preprocessing.jl")
         )
 
 Estimates the TE from lists of raw event times.
+
+# Examples
+
+```jldoctest calculate_TE_from_event_times; filter = r"-?[0-9]+.[0-9]+"
+julia> source = sort(1e4*rand(Int(1e4)));
+
+julia> target = sort(1e4*rand(Int(1e4)));
+
+julia> using CoTETE
+
+julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
+0.0
+
+julia> abs(TE - 0) < 0.02 # For Doctesting purposes
+true
+
+```
 
 # Arguments
 - `target_events::Array{<:AbstractFloat}`: A list of the raw event times in the target
@@ -41,19 +58,36 @@ Estimates the TE from lists of raw event times.
 - `auto_find_start_and_num_events::Bool = true`: When set to true, the start event will be set to
   the first event for which there are sufficient preceding events in all processes such that the
   embeddings can be constructed. The number of target events will be set such that all time between
-  this first event and the last event is included.
-- `start_event::Integer = 1`:
-- `num_target_events::Integer = length(target_events) - start_event`:
-- `num_samples_ratio::AbstractFloat = 1.0`:
-- `k::Integer = 5`:
-- `conditioning_events::Array{<:AbstractFloat} = [0.0]`:
-- `l_z::Integer = 0`:
-- `metric::Metric = Euclidean()`:
-- `is_surrogate::Bool = false`:
-- `surrogate_num_samples_ratio::AbstractFloat = 1.0`:
-- `k_perm::Integer = 5`:
-
-!!! warning "warning on using auto_find_start_and_num_events"
+  this first event and the last target event is included.
+- `start_event::Integer = 1`: only used when `auto_find_start_and_num_events = false`. The index
+  of the event in the target process from which to start the analysis.
+- `num_target_events::Integer = length(target_events) - start_event`: only used when
+  `auto_find_start_and_num_events = false`. The TE will be calculated on the time series from the
+  timestamp of the `start_event`-th event of the target process to the timestamp of the
+  `start_event + num_target_events`-th event of the target process.
+- `num_samples_ratio::AbstractFloat = 1.0`: Controls the number of samples used to estimate the
+  probability density of histories unconditional of the occurrence of events in the target process.
+  This number of samples will be `num_samples_ratio * num_target_events`.
+  Corresponds to ``N_U/N_X`` in [^1].
+- `k_global::Integer = 5`: The number of nearest neighbours to consider in initial searches.
+- `conditioning_events::Array{<:AbstractFloat} = [0.0]`: A list of the raw event times in the target
+  process. Corresponds to ``Z_1`` in [^1].
+  !!! info "Single conditioning process"
+      Note that the framework developed in out paper [^1] considers an arbitrary number of extra
+      conditioning processes, at present the framework can only handle a single such process.
+      This will change in future releases.
+- `l_z::Integer = 0`: The number of intervals in the single conditioning process to use in the
+  history embeddings. Corresponds to ``l_{Z_1}`` in [^1].
+- `metric::Metric = Euclidean()`: The metric to use for nearest neighbour and radius searches.
+- `is_surrogate::Bool = false`: If set to `true`, after the embeddings have been constructed, but
+  before the TE is estimated, the source embeddings are permuted according to our local permutation
+  scheme.
+- `surrogate_num_samples_ratio::AbstractFloat = 1.0`: Controls the number of samples used to
+  to construct the alternate set of history embeddings used by our local permutation scheme.
+  This number of samples will be `surrogate_num_samples_ratio * num_target_events`.
+  Corresponds to ``N_{U, \\textrm{surrogate}}/N_X`` in [^1].
+- `k_perm::Integer = 5`: The number of neighbouring source embeddings from which to randomly select
+  a replacement embedding in the local permutation scheme.
 
 
 [^1] Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data
@@ -70,7 +104,7 @@ function calculate_TE_from_event_times(
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples_ratio::AbstractFloat = 1.0,
-    k::Integer = 5,
+    k_global::Integer = 5,
     conditioning_events::Array{<:AbstractFloat} = [0.0],
     l_z::Integer = 0,
     metric::Metric = Euclidean(),
@@ -108,7 +142,7 @@ function calculate_TE_from_event_times(
         sampled_representation_conditionals,
         joint_exclusion_windows,
         sampled_joint_exclusion_windows,
-        k = k,
+        k_global = k_global,
         metric = metric,
     )
 
@@ -128,7 +162,7 @@ function calculate_TE(
     sampled_representation_conditionals::Array{<:AbstractFloat},
     joint_exclusion_windows::Array{<:AbstractFloat},
     sampled_joint_exclusion_windows::Array{<:AbstractFloat};
-    k::Integer = 4,
+    k_global::Integer = 5,
     metric::Metric = Euclidean(),
 )
 
@@ -140,7 +174,7 @@ function calculate_TE(
 
     tree_conditionals = NearestNeighbors.KDTree(representation_conditionals, metric, reorder = false)
 
-    tree_samplel_zonditionals = NearestNeighbors.KDTree(sampled_representation_conditionals, metric, reorder = false)
+    tree_sampld_conditionals = NearestNeighbors.KDTree(sampled_representation_conditionals, metric, reorder = false)
 
     l_y = size(representation_joint, 1) - size(representation_conditionals, 1)
     l_x = size(representation_conditionals, 1)
@@ -152,7 +186,7 @@ function calculate_TE(
             representation_joint[:, i],
             joint_exclusion_windows[:, :, i],
             joint_exclusion_windows,
-            k,
+            k_global,
         )
 
         indices_sampled_joint, radii_sampled_joint = NearestNeighbors.knn(
@@ -160,7 +194,7 @@ function calculate_TE(
             representation_joint[:, i],
             joint_exclusion_windows[:, :, i],
             sampled_joint_exclusion_windows,
-            k,
+            k_global,
         )
 
         radius_joint = max(maximum(radii_joint), maximum(radii_sampled_joint)) + 1e-6
@@ -170,18 +204,18 @@ function calculate_TE(
             representation_conditionals[:, i],
             joint_exclusion_windows[:, :, i],
             joint_exclusion_windows,
-            k,
+            k_global,
         )
 
-        indices_samplel_zonditionals, radii_samplel_zonditionals = NearestNeighbors.knn(
-            tree_samplel_zonditionals,
+        indices_sampld_conditionals, radii_sampld_conditionals = NearestNeighbors.knn(
+            tree_sampld_conditionals,
             representation_conditionals[:, i],
             joint_exclusion_windows[:, :, i],
             sampled_joint_exclusion_windows,
-            k,
+            k_global,
         )
 
-        radius_conditionals = max(maximum(radii_conditionals), maximum(radii_samplel_zonditionals)) + 1e-6
+        radius_conditionals = max(maximum(radii_conditionals), maximum(radii_sampld_conditionals)) + 1e-6
 
         indices_joint = NearestNeighbors.inrange(
             tree_joint,
@@ -207,8 +241,8 @@ function calculate_TE(
             radius_conditionals,
         )
 
-        indices_samplel_zonditionals = NearestNeighbors.inrange(
-            tree_samplel_zonditionals,
+        indices_sampld_conditionals = NearestNeighbors.inrange(
+            tree_sampld_conditionals,
             representation_conditionals[:, i],
             joint_exclusion_windows[:, :, i],
             sampled_joint_exclusion_windows,
@@ -223,18 +257,18 @@ function calculate_TE(
             representation_conditionals[:, i],
             representation_conditionals[:, indices_conditionals],
         ))
-        radius_samplel_zonditionals = maximum(colwise(
+        radius_sampld_conditionals = maximum(colwise(
             metric,
             representation_conditionals[:, i],
-            sampled_representation_conditionals[:, indices_samplel_zonditionals],
+            sampled_representation_conditionals[:, indices_sampld_conditionals],
         ))
 
         TE += (
-            -(l_x + l_y) * log(2 * radius_joint) +
-            (l_x + l_y) * log(2 * radius_sampled_joint) +
-            (l_x) * log(2 * radius_conditionals) - (l_x) * log(2 * radius_samplel_zonditionals) +
+            -(l_x + l_y) * log(radius_joint) +
+            (l_x + l_y) * log(radius_sampled_joint) +
+            (l_x) * log(radius_conditionals) - (l_x) * log(radius_sampld_conditionals) +
             digamma(size(indices_joint)[1]) - digamma(size(indices_sampled_joint)[1]) -
-            digamma(size(indices_conditionals)[1]) + digamma(size(indices_samplel_zonditionals)[1])
+            digamma(size(indices_conditionals)[1]) + digamma(size(indices_sampld_conditionals)[1])
         )
 
     end
