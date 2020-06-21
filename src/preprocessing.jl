@@ -1,7 +1,16 @@
 using Random: shuffle!, shuffle
 
+push!(LOAD_PATH,"NearestNeighbors.jl/src/NearestNeighbors.jl")
 include("NearestNeighbors.jl/src/NearestNeighbors.jl")
 
+"""
+    function make_one_embedding(
+        time_point::AbstractFloat,
+        event_time_arrays, #TODO: add type to this
+        most_recent_event_indices::Array{<:Integer},
+        embedding_lengths::Array{<:Integer},
+    )
+"""
 function make_one_embedding(
     time_point::AbstractFloat,
     event_time_arrays, #TODO: add type to this
@@ -30,6 +39,15 @@ function make_one_embedding(
 
 end
 
+"""
+    function make_embeddings_along_time_points(
+        time_points::Array{<:AbstractFloat},
+        start_time_point::Integer,
+        num_time_points::Integer,
+        event_time_arrays, #TODO: add type to this
+        embedding_lengths::Array{<:Integer},
+    )
+"""
 function make_embeddings_along_time_points(
     time_points::Array{<:AbstractFloat},
     start_time_point::Integer,
@@ -61,7 +79,17 @@ function make_embeddings_along_time_points(
 
 end
 
-
+"""
+    function make_surrogate(
+        representation_joint::Array{<:AbstractFloat},
+        joint_exclusion_windows::Array{<:AbstractFloat},
+        dense_sampled_representation_joint::Array{<:AbstractFloat},
+        dense_sampled_joint_exclusion_windows::Array{<:AbstractFloat},
+        metric::Metric,
+        l_x_plus_l_z::Integer,
+        k_perm::Integer,
+    )
+"""
 function make_surrogate(
     representation_joint::Array{<:AbstractFloat},
     joint_exclusion_windows::Array{<:AbstractFloat},
@@ -106,6 +134,26 @@ function make_surrogate(
 
 end
 
+
+"""
+    function construct_history_embeddings(
+        target_events::Array{<:AbstractFloat},
+        source_events::Array{<:AbstractFloat},
+        l_x::Integer,
+        l_y::Integer;
+        auto_find_start_and_num_events::Bool = true,
+        start_event::Integer = 1,
+        num_target_events::Integer = length(target_events) - start_event,
+        num_samples_ratio::AbstractFloat = 1.0,
+        noise_level::AbstractFloat = 1e-8,
+        conditioning_events::Array{<:AbstractFloat} = [0.0],
+        l_z::Integer = 0,
+        is_surrogate::Bool = false,
+        surrogate_num_samples_ratio::AbstractFloat = 1.0,
+        k_perm::Integer = 5,
+        metric = Euclidean(),
+    )
+"""
 function construct_history_embeddings(
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat},
@@ -115,7 +163,7 @@ function construct_history_embeddings(
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples_ratio::AbstractFloat = 1.0,
-    noise_level::AbstractFloat = 1e-6,
+    noise_level::AbstractFloat = 1e-8,
     conditioning_events::Array{<:AbstractFloat} = [0.0],
     l_z::Integer = 0,
     is_surrogate::Bool = false,
@@ -185,7 +233,7 @@ function construct_history_embeddings(
 
     end
 
-
+    representation_joint += noise_level .* randn(size(representation_joint))
     sampled_representation_joint += noise_level .* randn(size(sampled_representation_joint))
 
     representation_conditionals = representation_joint[1:(l_x+l_z), :]

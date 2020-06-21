@@ -1,9 +1,10 @@
-# Base Functions
+# Home
 
 ```@meta
 CurrentModule = CoTETE
 ```
 
-```@docs
-calculate_TE_from_event_times
+```@contents
+Pages = ["public.md", "internals.md"]
+Depth = 3
 ```
