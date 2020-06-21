@@ -1,7 +1,6 @@
 module CoTETE
 
-push!(LOAD_PATH,"NearestNeighbors.jl/src/NearestNeighbors.jl")
-
+export calculate_TE_from_event_times
 
 using Distances: evaluate, colwise, Metric, Chebyshev, Euclidean
 using SpecialFunctions: digamma, gamma
@@ -64,8 +63,11 @@ Let's try some other options
 ```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> using Distances: Cityblock
 
-julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 1, 1, k_global = 3,
+julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 1, 2, k_global = 3,
                                                  auto_find_start_and_num_events = false,
+                                                 start_event = 100,
+                                                 num_target_events = 5000,
+                                                 num_samples_ratio = 2.3,
                                                  metric = Cityblock())
 0.0
 
@@ -233,9 +235,16 @@ function calculate_TE_from_event_times(
 end
 
 """
-    foo()
-
-    Returns the TE.
+    calculate_TE(
+        representation_joint::Array{<:AbstractFloat},
+        representation_conditionals::Array{<:AbstractFloat},
+        sampled_representation_joint::Array{<:AbstractFloat},
+        sampled_representation_conditionals::Array{<:AbstractFloat},
+        joint_exclusion_windows::Array{<:AbstractFloat},
+        sampled_joint_exclusion_windows::Array{<:AbstractFloat};
+        k_global::Integer = 5,
+        metric::Metric = Euclidean(),
+    )
 """
 function calculate_TE(
     representation_joint::Array{<:AbstractFloat},
