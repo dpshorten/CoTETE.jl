@@ -42,7 +42,7 @@ julia> Pkg.add("SpecialFunctions")
 ```
 For the first example, lets estimate the TE between uncoupled homogeneous Poisson processes. This
 is covered in section II A of [1].
-We first create the source and target processes, each with 10 000 events and with rate 1.
+We first create the source and target processes, each with 1 000 events and with rate 1.
 
 ```julia
 julia> source = 1e3*rand(Int(1e3));
