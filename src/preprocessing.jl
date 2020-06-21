@@ -211,7 +211,7 @@ function construct_history_embeddings(
         dense_sample_points =
             joint_exclusion_windows[1, 2, 1] .+
             (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .*
-            rand(Int(round(surrogate_upsample_ratio * num_samples)))
+            rand(surrogate_num_samples)
         sort!(dense_sample_points)
         dense_sampled_representation_joint, dense_sampled_joint_exclusion_windows = make_embeddings_along_time_points(
             dense_sample_points,
