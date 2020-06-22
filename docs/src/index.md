@@ -23,8 +23,11 @@ The above diagram shows the raw membrane potentials of two neurons from which sp
 Time is then discretised into bins of width ``\Delta t`` to give us two binary time series (labelled
 ``X`` and ``Y`` for the source and target, respectively). The binary values these processes take on
 signify the presence of an event (spike) in the bin. For each such value ``x_t`` in the target
-process, we can ask what the probability of that value is given a history embedding of the target
-process. 
+process, we can ask what the probability of that value is given the history of the target
+process ``p(x_t \, | \, \mathbf{x}<t)``. In practice, such conditional probabilities can only be estimated for histories
+of limited length. As such, we use a history embedding of ``m`` bins. These are usually chosen to be the ``m`` bins
+preceding the ``t``-th bin under consideration. In the above diagram, ``m`` is chosen to be 5, and so we are estimating
+``p(x_t \, | \, \mathbf{x}_{t-5:t-1})``
 
 ## Contents
 ```@contents
