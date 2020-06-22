@@ -9,7 +9,7 @@ makedocs(
     authors="David Shorten",
     pages = [
         "index.md",
-        "quickStart.md",
+        #"quickStart.md",
         "public.md",
         "internals.md",
     ]
