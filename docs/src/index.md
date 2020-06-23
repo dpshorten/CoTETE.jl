@@ -126,7 +126,8 @@ CoTETE.jl presents an implementation of an estimator that is able to bypass thes
 in continuous time on the raw timestamps of the events. This allows it to be consistent and also capture
 dependencies over relatively long ranges without any loss of precision. It also exhibits bias and
 convergence properties that are far superior to the discrete time approach (see
-[our paper](https://doi.org/10.1101/2020.06.16.154377) for examples). 
+[our paper](https://doi.org/10.1101/2020.06.16.154377) for examples). The below figure gives a diagram
+of how the history embeddings are represented in our approach. 
 
 
 
