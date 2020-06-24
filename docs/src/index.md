@@ -109,7 +109,7 @@ bin, find the average, divide by ``\Delta t`` and, wham, we have estimated the T
 Unfortunately, there are large limitations to estimating the TE in this fashion. Perhaps the most
 important of these is that when we perform time-discretisation, we are applying a lossy transformation
 to the data. So long as our bin size is larger than the time precision of the device used to record
-our data (as is usually the case), once th(https://doi.org/10.1101/2020.06.16.154377)e discretisation has been performed we cannot reconstruct
+our data (as is usually the case), once the discretisation has been performed we cannot reconstruct
 the original time series in full detail. The implication of this is that the estimator is not guaranteed
 to converge to the true value of the TE in the limit of infinite data (it is not consistent). Another
 large limitation relates to our choice of bin size. The number of different history combinations grows
@@ -127,9 +127,12 @@ in continuous time on the raw timestamps of the events. This allows it to be con
 dependencies over relatively long ranges without any loss of precision. It also exhibits bias and
 convergence properties that are far superior to the discrete time approach (see
 [our paper](https://doi.org/10.1101/2020.06.16.154377) for examples). The below figure gives a diagram
-of how the history embeddings are represented in our approach. 
+of how the history embeddings are represented in our approach.
 
+![Continuous TE](intro_continuous.png)
 
+The estimator makes use of a [recent result](doi.org/10.1103/PhysRevE.95.032319) which showed that, for stationary
+event based data, the TE rate can be expressed as:
 
 ## Contents
 ```@contents
