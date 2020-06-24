@@ -216,6 +216,82 @@ No contributions need to be estimated for the 'white space' in-between events. I
 converges to this expression in the limit of small bin size. Fortunately, the contributions between events cancel
 and we are left with an expression which can be used for efficient estimation of the TE rate.
 
+The dominant method for the estimation of information-theoretic quantities from continuous-valued data is the class of
+``k``-Nearest-Neighbour estimators (``k``NN). There are multiple consistency proofs for the various estimators in this
+class, so we have guarantees that we will converge to the correct answer in the limit of infinite data.
+
+Gaining an understanding of how these ``k``NN estimators operate is most easily done in the simplest case
+of estimating the differential entropy of a random variable. Say we have the variable ``\mathbf{Z}``, the
+differential entropy is then ``H(\mathbf{Z}) = \mathbb{E}[-\ln p(\mathbf{z})]``. Here, ``\mathbb{E}`` represents
+that we are taking the expected value or average. We are attempting to estimate the entropy from a
+set of samples drawn from the distribution ``P(\mathbf{Z})``. The below diagram shows an example of such a
+set of samples in an instance where ``\mathbf{z}`` is two dimensional (``\mathbf{z} = \{z_1, z_2\}``).
+Each sample is represented by a point in the below diagram.
+
+![knn](knn.png)
+
+In real applications the underlying distribution
+``P(\mathbf{Z})`` is unkown (if it were known we probably wouldn't need the estimator), but we have observed
+the set of samples from it in some experiment or data collection. Our strategy for estimating the entropy
+is to go through each of the sample points ``\mathbf{z}_i`` and find an estimate of the probability density
+at this point, ``\hat{p}(\mathbf{z}_i)``. We can then take the negative log of these estimates and
+average them to come up with an estimator for the entropy:
+```math
+\hat{H}(\mathbf{Z}) = -\frac{1}{N_Z}\sum_{i=1}^{N_Z} \ln \hat{p}(\mathbf{z}_i)
+```
+We now just need to find a way to construct the estimator for the probability density ``\hat{p}(\mathbf{z}_i)``
+and this is where the ``k``-Nearest-Neighbour searches are used. For a given point ``\mathbf{z}_i``,
+we search for the ``k``-th closest point to ``\mathbf{z}_i`` according to a distance metric of our choice. We
+record the distance ``\epsilon`` to this point. The probability density can then be estimated as the ratio of
+the probability mass ``k/(N_Z - 1)`` to the volume of the ``\epsilon``-ball formed around the point.
+This is demonstrated in the
+above figure, for ``k = 3`` and the euclidean distance. This gives us:
+```math
+\hat{p}(\mathbf{z}_i)
+=
+\frac{
+	k
+	}{
+		\left(N_{Z} - 1\right)
+		c_{d, L}
+		\epsilon_i^d
+	}
+```
+Where ``c_{d, L}`` is the volume of the ``d``-dimensional unit ball under our norm ``L``. Integrating this
+into our strategy for estimating entropy we have the estimator:
+```math
+\hat{H}(Z) =
+-\frac{1}{N_Z} \sum_{i=1}^{N_Z}
+\ln
+\frac{
+	k
+	}{
+		\left(N_{Z} - 1\right)
+		c_{d, L}
+		\epsilon_i^d
+	}
+```
+We then add the bias-correction term ``\ln k - \psi(k)``. ``\psi(x)`` is the digamma
+function. This gives us ``\hat{H}_{\text{KL}}``, the
+Kozachenko-Leonenko [^4] estimator of differential entropy:
+```math
+		\hat{H}_{\text{KL}}(Z) = -\psi(k) + \ln(N_Z - 1) + \ln c_{d, L}  
+		+ \frac{d}{N_Z} \sum_{i=1}^{N_Z}
+		\ln \epsilon_i
+```
+It is most unfortunate that Kozachenko-Leonenko and Kullback-Leibler share the same abbreviation of their
+surnames. I would encourage you to take note of this in order to avoid confusion (its gotten me a few times).
+
+``k``-NN estimators of other information-theoretic quantities operate by decomposing the quantity into a
+sum of entropy terms. Each of these terms can then be estimated using ``\hat{H}_{\text{KL}}``. Sometimes,
+as in the case of the famous [KSG estimator](https://doi.org/10.1103/PhysRevE.69.066138) of mutual
+information, a scheme is divised whereby the same radius is used for a given point across multiple entropy terms.
+This has been found to reduce the bias.
+
+Unfortunately, if we try to apply this strategy to our expression for the TE rate we will hit a snag.
+This is because this expression is written in terms of logs of *rates*, as opposed to logs of
+probability densities. This means that we have no entropy terms!!
+
 ## Contents
 ```@contents
 Pages = ["quickStart.md", "public.md", "internals.md"]
@@ -239,3 +315,5 @@ recommended.
 [^2]: Bossomaier, T., Barnett, L., Harré, M., & Lizier, J. T. (2016). An introduction to transfer entropy. Cham: Springer International Publishing 65-95.
 
 [^3]: Lizier, J. T. (2012). The local information dynamics of distributed computation in complex systems. Springer Science & Business Media.
+
+[^4]: Kozachenko, L. F., & Leonenko, N. N. (1987). Sample estimate of the entropy of a random vector. Problemy Peredachi Informatsii, 23(2), 9-16.
