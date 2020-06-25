@@ -9,6 +9,7 @@ makedocs(
     authors="David Shorten",
     pages = [
         "Home" => "index.md",
+        "background.md",
         "quickStart.md",
         "public.md",
         "internals.md",
