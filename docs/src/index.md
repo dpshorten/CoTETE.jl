@@ -176,7 +176,7 @@ event-based data, the TE rate can be expressed as:
 ```
 
 To avoid confusion, it is worth emphasizing that the structure of the underlying data we are analysing
-has change here. In the discrete-time case, ``X`` and ``Y`` were series of values at the sampled time points ``t_i``.
+has changed here. In the discrete-time case, ``X`` and ``Y`` were series of values at the sampled time points ``t_i``.
 ``x_t \in X`` was then a binary value representing the presence or absence of a spike in the ``t``-th
 bin. Here, however, ``X`` and ``Y`` are sets of the raw timestamps of the events. ``x_i \in X`` is then
 the time at which a spike in the target occurred.
@@ -217,7 +217,7 @@ converges to this expression in the limit of small bin size. Fortunately, the co
 and we are left with an expression which can be used for efficient estimation of the TE rate.
 
 The dominant method for the estimation of information-theoretic quantities from continuous-valued data is the class of
-``k``-Nearest-Neighbour estimators (``k``NN). There are multiple consistency proofs for the various estimators in this
+``k``-Nearest-Neighbours (``k``NN) estimators. There are multiple consistency proofs for the various estimators in this
 class, so we have guarantees that we will converge to the correct answer in the limit of infinite data.
 
 Gaining an understanding of how these ``k``NN estimators operate is most easily done in the simplest case
@@ -230,7 +230,7 @@ Each sample is represented by a point in the below diagram.
 
 ![knn](knn.png)
 
-In real applications the underlying distribution
+In real applications, the underlying distribution
 ``P(\mathbf{Z})`` is unkown (if it were known we probably wouldn't need the estimator), but we have observed
 the set of samples from it in some experiment or data collection. Our strategy for estimating the entropy
 is to go through each of the sample points ``\mathbf{z}_i`` and find an estimate of the probability density
@@ -240,12 +240,19 @@ average them to come up with an estimator for the entropy:
 \hat{H}(\mathbf{Z}) = -\frac{1}{N_Z}\sum_{i=1}^{N_Z} \ln \hat{p}(\mathbf{z}_i)
 ```
 We now just need to find a way to construct the estimator for the probability density ``\hat{p}(\mathbf{z}_i)``
-and this is where the ``k``-Nearest-Neighbour searches are used. For a given point ``\mathbf{z}_i``,
+and this is where the ``k``-Nearest-Neighbours searches are used. For a given point ``\mathbf{z}_i``,
 we search for the ``k``-th closest point to ``\mathbf{z}_i`` according to a distance metric of our choice. We
 record the distance ``\epsilon`` to this point. The probability density can then be estimated as the ratio of
 the probability mass ``k/(N_Z - 1)`` to the volume of the ``\epsilon``-ball formed around the point.
-This is demonstrated in the
-above figure, for ``k = 3`` and the euclidean distance. This gives us:
+This process is demonstrated in the above figure, for a two-dimensional variable with ``k = 3`` and the
+euclidean distance.
+For ``p``-norms we can express this volume as ``c_{d, L^p}\epsilon^d`` where ``c_{d, L^p}`` is the volume of the
+``d``-dimensional unit ball under the norm ``L^p``. The exact expression for ``c_{d, L^p}`` is not very important
+as it will end up cancelling out later. We will usually use the [Manhattan](https://en.wikipedia.org/wiki/Taxicab_geometry),
+[maximum](https://en.wikipedia.org/wiki/Uniform_norm) or [Euclidean](https://en.wikipedia.org/wiki/Euclidean_distance)
+norm.
+
+This gives us:
 ```math
 \hat{p}(\mathbf{z}_i)
 =
@@ -257,7 +264,8 @@ above figure, for ``k = 3`` and the euclidean distance. This gives us:
 		\epsilon_i^d
 	}
 ```
-Where ``c_{d, L}`` is the volume of the ``d``-dimensional unit ball under our norm ``L``. Integrating this
+
+ Integrating this
 into our strategy for estimating entropy we have the estimator:
 ```math
 \hat{H}(Z) =
@@ -280,17 +288,46 @@ Kozachenko-Leonenko [^4] estimator of differential entropy:
 		\ln \epsilon_i
 ```
 It is most unfortunate that Kozachenko-Leonenko and Kullback-Leibler share the same abbreviation of their
-surnames. I would encourage you to take note of this in order to avoid confusion (its gotten me a few times).
+surnames. This has caught me on a few occassions.
 
 ``k``-NN estimators of other information-theoretic quantities operate by decomposing the quantity into a
 sum of entropy terms. Each of these terms can then be estimated using ``\hat{H}_{\text{KL}}``. Sometimes,
 as in the case of the famous [KSG estimator](https://doi.org/10.1103/PhysRevE.69.066138) of mutual
 information, a scheme is divised whereby the same radius is used for a given point across multiple entropy terms.
-This has been found to reduce the bias.
+This [has been found](https://doi.org/10.1109/TIT.2018.2807481) to reduce the bias.
 
 Unfortunately, if we try to apply this strategy to our expression for the TE rate we will hit a snag.
 This is because this expression is written in terms of logs of *rates*, as opposed to logs of
 probability densities. This means that we have no entropy terms!!
+
+```math
+		\mathbf{\dot{T}}}_{Y \rightarrow X} =
+		\bar{\lambda}_X
+		\mathbb{E}_{P_X}
+		\left[
+		\ln
+		\frac{
+			p_X \left(
+				\mathbf{{x}}_{<x}, \mathbf{{y}}_{<x}
+			\right)
+		}{
+			p_X \left(
+				\mathbf{{x}}_{<x}
+			\right)
+		}
+		+ \ln 
+		\frac{
+			p_U \left(
+				\mathbf{{x}}_{<x}, \mathbcal{{z}}_{<x}
+			\right)
+		}{
+			p_U \left(
+				\mathbf{{x}}_{<x}, \mathbf{{y}}_{<x}, \mathbcal{{z}}_{<x}
+			\right)
+		}
+		\bigg
+		\right]
+```
 
 ## Contents
 ```@contents
