@@ -300,34 +300,67 @@ Unfortunately, if we try to apply this strategy to our expression for the TE rat
 This is because this expression is written in terms of logs of *rates*, as opposed to logs of
 probability densities. This means that we have no entropy terms!!
 
+The situation can be remedied by re-writing our expression for the TE in continuous time as follows:
 ```math
-		\mathbf{\dot{T}}}_{Y \rightarrow X} =
-		\bar{\lambda}_X
+\mathbf{\dot{T}}_{Y \rightarrow X} =
+	\bar{\lambda}_X
 		\mathbb{E}_{P_X}
-		\left[
-		\ln
+		\bigg[
+				\ln
 		\frac{
 			p_X \left(
 				\mathbf{{x}}_{<x}, \mathbf{{y}}_{<x}
 			\right)
 		}{
 			p_X \left(
-				\mathbf{{x}}_{<x}
+n				\mathbf{{x}}_{<x}
 			\right)
 		}
-		+ \ln 
+		+ \ln
 		\frac{
 			p_U \left(
-				\mathbf{{x}}_{<x}, \mathbcal{{z}}_{<x}
+				\mathbf{{x}}_{<x}
 			\right)
 		}{
 			p_U \left(
-				\mathbf{{x}}_{<x}, \mathbf{{y}}_{<x}, \mathbcal{{z}}_{<x}
+				\mathbf{{x}}_{<x}, \mathbf{{y}}_{<x}
 			\right)
 		}
-		\bigg
-		\right]
+		\bigg]
 ```
+See [our paper](https://doi.org/10.1101/2020.06.16.154377) for a derivation.
+As this expression has probability densities, as opposed to rates, it will yield entropy and cross
+entropy (more on this later) terms. The densities ``p_X`` refer to the probability density of histories
+observed at events in the target process and the densities ``p_U`` refer to the probability density of histories
+observed anywhere in the time series, not conditioned on events in the target process. ``\bar{\lambda}_X`` is
+the average rate of events in the target process.
+
+This expression has shifted our view on the probabilities that we are trying to estimate. In the original
+continuous-time expression for the TE rate, we were asking, given a certain history, what the probability of
+an event is in the next small time window. In this new expression we are asking, given a certain history
+observed at an event, what is the probability density of observing that history at an event. We contrast
+this with the probability of observing that history anywhere in the process.   
+
+Writing our new expression as a sum of entropy and cross entropy terms we have:
+```math
+		\dot{\mathbf{T}}_{Y \rightarrow X} =
+		\bar{\lambda}_X
+		\bigg[
+		- H\left(
+			\mathbf{{X}}_{<X}, \mathbf{{Y}}_{<X}
+		\right)
+		+ H\left(
+			\mathbf{{X}}_{<X}
+		\right)
+		+ H_{P_U}\left(
+			\mathbf{{X}}_{<X}, \mathbf{{Y}}_{<X}
+		\right)
+       - H_{P_U}\left(
+			\mathbf{{X}	}_{<X}
+		\right)
+		\bigg]
+```
+
 
 ## Contents
 ```@contents
