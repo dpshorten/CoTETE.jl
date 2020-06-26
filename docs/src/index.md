@@ -13,7 +13,7 @@ from observational data.
 This package allows one to estimate the Transfer Entropy (TE) between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
 time into bins). The advantages of this approach over the discrete-time approach include:
-* The continuous-time approach is **provably consistent** -- it is guaranteed to converge to the true
+* The continuous-time approach is **provably consistent** - it is guaranteed to converge to the true
   value of the TE in the limit of infinite data. The discrete-time estimator is not consistent. It is easy to create examples
   where it does not converge to the true value of the TE.
 * The discrete-time approach is thwarted by having an effective limit on the total number of bins
