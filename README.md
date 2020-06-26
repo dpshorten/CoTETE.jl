@@ -20,7 +20,7 @@ This package allows one to estimate the Transfer Entropy (TE) between event-base
 (such as spike trains or social media post times) in continuous time (that is, without discretising
 time into bins). The advantages of this approach over the historic discrete-time approach include:
 * The continuous-time approach is **provably consistent** --- it is guaranteed to converge to the true
-  value of the TE. The discrete-time estimator is not consistent. It is easy to create examples
+  value of the TE in the limit of infinite data. The discrete-time estimator is not consistent. It is easy to create examples
   where it does not converge to the true value of the TE.
 * The discrete-time approach is thwarted by having an effective limit on the total number of bins
   that can be used for history embeddings. This means that the user of this approach must choose between
@@ -166,6 +166,7 @@ For both of these examples, increasing the number of events in the processes wil
 
 If you have any issues using this software, please add an issue here on github, or email me at david.shorten@sydney.edu.au
 
+## References
 
 [1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2020). [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377). bioRxiv 2020.06.16.154377.
 
