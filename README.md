@@ -3,6 +3,8 @@
 
 ### [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
 
+## Introduction
+
 This package allows one to estimate the transfer entropy between event-based time series (such as spike trains or social media post times) in continuous time
 (that is, without discretising time into bins).
 
