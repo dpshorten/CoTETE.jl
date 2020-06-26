@@ -357,7 +357,7 @@ Writing our new expression as a sum of entropy and cross entropy terms we have:
 			\mathbf{{X}}_{<X}, \mathbf{{Y}}_{<X}
 		\right)
        - H_{P_U}\left(
-			\mathbf{{X}	}_{<X}
+			\mathbf{{X}}_{<X}
 		\right)
 		\bigg]
 ```
