@@ -57,7 +57,7 @@ Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
 ## Contents
 ```@contents
 Pages = ["background.md", "quickStart.md", "background", "public.md", "internals.md"]
-Depth = 3
+Depth = 1
 ```
 ## Other Software
 If you would like to apply TE to other data modalities, the [JIDT](https://github.com/jlizier/jidt) toolkit is highly
