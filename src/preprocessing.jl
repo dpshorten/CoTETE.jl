@@ -1,6 +1,6 @@
 using Random: shuffle!, shuffle
 
-push!(LOAD_PATH,"NearestNeighbors.jl/src/NearestNeighbors.jl")
+push!(LOAD_PATH, "NearestNeighbors.jl/src/NearestNeighbors.jl")
 include("NearestNeighbors.jl/src/NearestNeighbors.jl")
 
 """
@@ -61,12 +61,14 @@ function make_embeddings_along_time_points(
     exclusion_windows = []
     for time_point in time_points[start_time_point:(start_time_point+num_time_points)]
         for i = 1:length(trackers)
-            while (trackers[i] < length(event_time_arrays[i])) && (event_time_arrays[i][trackers[i]+1] < time_point)
+            while (trackers[i] < length(event_time_arrays[i])) &&
+                (event_time_arrays[i][trackers[i]+1] < time_point)
                 trackers[i] += 1
             end
         end
         #println(start_time_point, " ", trackers)
-        embedding, start_time = make_one_embedding(time_point, event_time_arrays, trackers, embedding_lengths)
+        embedding, start_time =
+            make_one_embedding(time_point, event_time_arrays, trackers, embedding_lengths)
         push!(embeddings, embedding)
         push!(exclusion_windows, [start_time, time_point])
     end
@@ -102,7 +104,11 @@ function make_surrogate(
 
     added_exclusion_windows = zeros(size(joint_exclusion_windows))
 
-    tree = NearestNeighbors.KDTree(dense_sampled_representation_joint[1:l_x_plus_l_z, :], metric, reorder = false)
+    tree = NearestNeighbors.KDTree(
+        dense_sampled_representation_joint[1:l_x_plus_l_z, :],
+        metric,
+        reorder = false,
+    )
 
     new_joint = copy(representation_joint)
     permutation = shuffle(collect(1:size(new_joint, 2)))
@@ -124,7 +130,8 @@ function make_surrogate(
         used_indices[i] = index
         new_joint[(l_x_plus_l_z+1):end, permutation[i]] =
             dense_sampled_representation_joint[(l_x_plus_l_z+1):end, index]
-        added_exclusion_windows[1, :, permutation[i]] = dense_sampled_joint_exclusion_windows[1, :, index]
+        added_exclusion_windows[1, :, permutation[i]] =
+            dense_sampled_joint_exclusion_windows[1, :, index]
     end
 
     new_joint_exclusion_windows = vcat(joint_exclusion_windows, added_exclusion_windows)
@@ -198,13 +205,14 @@ function construct_history_embeddings(
         (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .* rand(num_samples)
     sort!(sample_points)
 
-    sampled_representation_joint, sampled_joint_exclusion_windows = make_embeddings_along_time_points(
-        sample_points,
-        1,
-        length(sample_points) - 2,
-        [target_events, conditioning_events, source_events],
-        [l_x, l_z, l_y],
-    )
+    sampled_representation_joint, sampled_joint_exclusion_windows =
+        make_embeddings_along_time_points(
+            sample_points,
+            1,
+            length(sample_points) - 2,
+            [target_events, conditioning_events, source_events],
+            [l_x, l_z, l_y],
+        )
 
     if is_surrogate
         surrogate_num_samples = Int(round(surrogate_num_samples_ratio * num_target_events))
@@ -213,13 +221,14 @@ function construct_history_embeddings(
             (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .*
             rand(surrogate_num_samples)
         sort!(dense_sample_points)
-        dense_sampled_representation_joint, dense_sampled_joint_exclusion_windows = make_embeddings_along_time_points(
-            dense_sample_points,
-            1,
-            length(sample_points) - 2,
-            [target_events, conditioning_events, source_events],
-            [l_x, l_z, l_y],
-        )
+        dense_sampled_representation_joint, dense_sampled_joint_exclusion_windows =
+            make_embeddings_along_time_points(
+                dense_sample_points,
+                1,
+                length(sample_points) - 2,
+                [target_events, conditioning_events, source_events],
+                [l_x, l_z, l_y],
+            )
 
         representation_joint, joint_exclusion_windows = make_surrogate(
             representation_joint,

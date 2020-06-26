@@ -2,13 +2,14 @@
 
 using Documenter, CoTETE, Test
 
-doctest(CoTETE)
+#doctest(CoTETE)
 
 makedocs(
     sitename="CoTETE.jl",
     authors="David Shorten",
     pages = [
-        "index.md",
+        "Home" => "index.md",
+        "background.md",
         "quickStart.md",
         "public.md",
         "internals.md",
