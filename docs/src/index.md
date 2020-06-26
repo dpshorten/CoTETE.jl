@@ -55,15 +55,13 @@ Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
 
 ## Contents
 ```@contents
-Pages = ["quickStart.md", "background", "public.md", "internals.md"]
+Pages = ["background.md", "quickStart.md", "background", "public.md", "internals.md"]
 Depth = 3
 ```
+## Other Software
+If you would like to apply TE to other data modalities, the [JIDT](https://github.com/jlizier/jidt) toolkit is highly
+recommended.
 
 ## Acknowledgements
 The estimator implemented here was developed in collaboration with my PhD supervisor, Joe Lizier,
 as well as Richard Spinney.
-
-
-## Other Software
-If you would like to apply TE to other data modalities, the [JIDT](https://github.com/jlizier/jidt) toolkit is highly
-recommended.
