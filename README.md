@@ -12,7 +12,7 @@ It contains implementations of the estimator and local permutation scheme presen
 [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
 
 Transfer entropy (TE) is a measure of information flow between time series. It can be used to
-infer "functional" networks of statistical associations. Under certain assumptions it
+infer functional networks of statistical associations. Under certain assumptions it
 can also be used to estimate underlying [causal networks](https://doi.org/10.1063/1.5025050)
 from observational data.
 
@@ -37,7 +37,7 @@ time into bins). The advantages of this approach over the historic discrete-time
   correct null hypothesis of conditional independence.
 See [our paper](https://doi.org/10.1101/2020.06.16.154377) for more details on all of these points.
 
-Transfer entropy has already been widely applied recordings of the spiking activity of neurons.
+Transfer entropy has already been widely applied to the spiking activity of neurons.
 Notable work on the application of TE to spike trains include:
 * [The reconstruction](https://doi.org/10.1371/journal.pcbi.1002653) of the
   structural connectivity of neurons from simulated calcium imaging data.
@@ -46,7 +46,7 @@ Notable work on the application of TE to spike trains include:
   ([1](https://doi.org/10.1007/s10827-013-0443-y), [2](https://doi.org/10.1371/journal.pone.0027431)).
 * [Investigation](https://doi.org/10.1371/journal.pcbi.1007226) of the energy efficiency of
   synaptic information transfer.
-* The inference of functional association networks (
+* The inference of functional and effective networks (
   [1](https://doi.org/10.1523/jneurosci.2177-15.2016),
   [2](https://doi.org/10.1371/journal.pone.0115764),
   [3](https://doi.org/10.1371/journal.pcbi.1004858),
