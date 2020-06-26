@@ -5,18 +5,12 @@
 
 ## Introduction
 
-This package allows one to estimate the transfer entropy between event-based time series (such as spike trains or social media post times) in continuous time
-(that is, without discretising time into bins).
-
-It contains implementations of the estimator and local permutation scheme presented in
-[Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
-
 Transfer entropy (TE) is a measure of information flow between time series. It can be used to
 infer functional networks of statistical associations. Under certain assumptions it
 can also be used to estimate underlying [causal networks](https://doi.org/10.1063/1.5025050)
 from observational data.
 
-This package allows one to estimate the Transfer Entropy (TE) between event-based time series
+This package allows one to estimate the TE between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
 time into bins). The advantages of this approach over the historic discrete-time approach include:
 * The continuous-time approach is **provably consistent** - it is guaranteed to converge to the true
