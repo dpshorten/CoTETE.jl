@@ -22,9 +22,10 @@ time into bins). The advantages of this approach over the historic discrete-time
 * The continuous-time approach is **provably consistent** --- it is guaranteed to converge to the true
   value of the TE in the limit of infinite data. The discrete-time estimator is not consistent. It is easy to create examples
   where it does not converge to the true value of the TE.
-* The discrete-time approach is thwarted by having an effective limit on the total number of bins
+* * The discrete-time approach is thwarted by having an effective limit on the total number of bins
   that can be used for history embeddings. This means that the user of this approach must choose between
-  capturing relationships occurring over long time intervals, or those that occurr with fine time precision.
+  capturing relationships occurring over long time intervals, or those that occurr with fine time precision
+  (by choosing either a large or small bin size ``\Delta t``).
   They can never capture both simultaneously. By contrast, the continuous-time approach can capture
   relationships occurring over relatively long time intervals with **no loss of precision**.
 * On synthetic examples studied, the continuous-time approach **converges orders of magnitude faster**
