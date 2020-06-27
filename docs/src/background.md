@@ -10,7 +10,7 @@ Getting a clearer picture of what TE is measuring is easiest done, initially at 
 
 The above diagram shows the raw membrane potentials of two neurons from which spikes are extracted.
 Time is then discretised into bins of width ``\Delta t`` to give us two binary time series (labelled
-``X`` and ``Y`` for the source and target, respectively). The binary values these processes take on
+``Y`` and ``X`` for the source and target, respectively). The binary values these processes take on
 signify the presence of an event (spike) in each bin. For each such value ``x_t`` in the target
 process, we can ask what the probability of that value is given the history of the target
 process ``p(x_t \, | \, \mathbf{x}_{<t})``. In practice, such conditional probabilities can only be estimated for histories
@@ -48,7 +48,7 @@ embedding lengths.
 ``\mathbf{t}_{Y \to X}`` will be positive in cases where the source is informative and negative when it is
 misinformative. However, it is only a measure of how informative the source was in
 *that specific time bin*. In many cases, such as network inference, we are interested in how
-generally informative one time series is of another. As such we take the average of ``\mathbf{t}_{Y \to X}``
+generally informative one time series is of another. As such, we take the average of ``\mathbf{t}_{Y \to X}``
 and label it ``\mathbf{T}_{Y \to X}``.
 ```math
 \mathbf{T}_{Y \to X} = \frac{1}{N}\sum_{t=1}^{N}
@@ -95,7 +95,8 @@ a similar fashion, except we are now looking for instances where both
 estimated probabilities to provide an estimate for ``\mathbf{t}_{Y \to X}``.
 We then repeat this procedure for every time bin, find the average, normalise by ``\Delta t``
 and, wham, we have estimated the TE!!
-(There are more computationally efficient ways of arriving at the same quantity)
+(There are more computationally efficient ways of arriving at the same quantity, but we are not
+	concerned with efficiency right now)
 
 Unfortunately, there are large limitations to estimating the TE in this fashion. Perhaps the most
 important of these is that when we perform time-discretisation, we are applying a lossy transformation
@@ -129,7 +130,7 @@ in continuous time on the raw timestamps of the events. This allows it to be con
 to converge to the true value of the TE rate in the limit of large dataset size.
 The fact that it uses inter-event intervals for its history embeddings allows it to capture
 dependencies over relatively long ranges without any loss of precision. It also exhibits bias and
-convergence properties that are far superior to the discrete time approach (see
+convergence properties that are far superior to the discrete-time approach (see
 [our paper](https://doi.org/10.1101/2020.06.16.154377) for examples).
 
 The below figure gives a diagram of how the history embeddings are represented in our approach.
