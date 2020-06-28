@@ -104,7 +104,8 @@ to the data. So long as our bin size is larger than the time precision of the de
 our data (as is usually the case), once the discretisation has been performed we cannot reconstruct
 the original time series in full detail - we have lost information.
 There could be history dependencies in the original data which occurr over a time scale smaller than
-the bin size. The discrete-time estimator will be blind to these relationships.
+the bin size. The discrete-time estimator will be blind to these relationships as the fine time detail was
+lost during discretisation.
 The implication of this is that the discrete-time estimator is not guaranteed
 to converge to the true value of the TE in the limit of infinite data (it is not consistent).
 
