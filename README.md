@@ -75,7 +75,9 @@ Fire up the Julia REPL
 david@home:~$ julia
 ```
 You will need to add three prerequisite packages.
-
+**Note for new Julia users:** The Julia REPL has a nifty feature called *prompt pasting*, which means that it
+will automatically remove the `julia>` prompt when you paste. You can, therefore, just copy and paste the entire block
+below without worrying about these prompts.
 ```julia
 julia> import Pkg
 julia> Pkg.add("Distances")
