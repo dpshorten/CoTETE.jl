@@ -169,6 +169,7 @@ function construct_history_embeddings(
     auto_find_start_and_num_events::Bool = true,
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
+    num_target_events_cap::Integer = -1,
     num_samples_ratio::AbstractFloat = 1.0,
     noise_level::AbstractFloat = 1e-8,
     conditioning_events::Array{<:AbstractFloat} = [0.0],
@@ -187,6 +188,9 @@ function construct_history_embeddings(
             start_event += 1
         end
         num_target_events = length(target_events) - start_event
+        if num_target_events_cap > 0 && num_target_events > num_target_events_cap
+            num_target_events = num_target_events_cap
+        end
     end
 
     num_samples = Int(round(num_samples_ratio * num_target_events))

@@ -185,6 +185,7 @@ function calculate_TE_from_event_times(
     l_x::Integer,
     l_y::Integer;
     auto_find_start_and_num_events::Bool = true,
+    num_target_events_cap::Integer = -1,
     start_event::Integer = 1,
     num_target_events::Integer = length(target_events) - start_event,
     num_samples_ratio::AbstractFloat = 1.0,
@@ -208,6 +209,7 @@ function calculate_TE_from_event_times(
         l_x,
         l_y,
         auto_find_start_and_num_events = auto_find_start_and_num_events,
+        num_target_events_cap = num_target_events_cap,
         num_target_events = num_target_events,
         num_samples_ratio = num_samples_ratio,
         start_event = start_event,
