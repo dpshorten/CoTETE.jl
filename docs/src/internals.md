@@ -13,11 +13,11 @@ calculate_TE
 ```
 
 ```@docs
-construct_history_embeddings
+preprocess_data
 ```
 
 ```@docs
-make_embeddings_along_time_points
+make_embeddings_along_observation_time_points
 ```
 
 ```@docs

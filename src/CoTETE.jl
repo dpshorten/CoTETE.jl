@@ -44,7 +44,7 @@ julia> using CoTETE
 julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
 0.0
 
-julia> abs(TE - 0) < 0.02 # For Doctesting purposes
+julia> abs(TE - 0) < 0.05 # For Doctesting purposes
 true
 
 ```
@@ -201,7 +201,7 @@ function calculate_TE_from_event_times(
     k_perm::Integer = 5,
 )
 
-    preprocessed_data = CoTETE.construct_history_embeddings(
+    preprocessed_data = CoTETE.preprocess_data(
         target_events,
         source_events,
         l_x,
