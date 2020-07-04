@@ -2,7 +2,7 @@
 
 using Documenter, CoTETE, Test
 
-#doctest(CoTETE)
+doctest(CoTETE)
 
 makedocs(
     sitename="CoTETE.jl",

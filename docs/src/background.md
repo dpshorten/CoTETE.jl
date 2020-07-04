@@ -1,7 +1,8 @@
 # Background
 
 
-Transfer entropy is a measure of information flow between a source and a target time series [^1][^2].
+[Transfer entropy](https://doi.org/10.1103/PhysRevLett.85.461) is a measure of
+[information flow](https://doi.org/10.1007/978-3-319-43222-9) between a source and a target time series.
 In the context of event-based data, it measures how much the knowledge of the times of historic events
 in the source decreases our uncertainty about the occurrence of events in the target.
 Getting a clearer picture of what TE is measuring is easiest done, initially at least, in discrete time.
@@ -32,7 +33,7 @@ our uncertainty about the next state of the target.
 If ``p(x_t \, | \, \mathbf{x}_{t-4:t-1}, \mathbf{y}_{t-4:t-1}) > p(x_t \, | \, \mathbf{x}_{t-4:t-1})``
 then the source allowed us to better predict the next state of the target and so reduced our uncertainty.
 Conversely, if ``p(x_t \, | \, \mathbf{x}_{t-4:t-1}, \mathbf{y}_{t-4:t-1}) < p(x_t \, | \, \mathbf{x}_{t-4:t-1})``
-then the source was misinformative [^3].
+then the source was [misinformative](https://dx.doi.org/10.1007/978-3-642-32952-4).
 
 One way of turning these two probabilities into a measurement of "informativeness" is to take the log
 of their ratio. We shall label this ``\mathbf{t}_{Y \to X}``.
@@ -211,7 +212,7 @@ class, so we have guarantees that we will converge to the correct answer in the 
 
 Gaining an understanding of how these ``k``NN estimators operate is most easily done in the simplest case
 of estimating the differential entropy of a random variable. Say we have the variable ``\mathbf{Z}``, the
-differential entropy is then ``H(\mathbf{Z}) = \mathbb{E}_{P(\mathbf{Z})}[-\ln p(\mathbf{z})]``.
+differential entropy is then ``H(\mathbf{Z}) = -\mathbb{E}_{P(\mathbf{Z})}[\ln p(\mathbf{z})]``.
 Here, ``\mathbb{E}_{P(\mathbf{Z})}`` represents
 that we are taking the expected value or average. We are attempting to estimate the entropy from a
 set of ``N_Z`` samples drawn from the distribution ``P(\mathbf{Z})``. The below diagram shows an example of such a
@@ -256,7 +257,7 @@ This gives us:
 ```
 
  Integrating this
-into our strategy for estimating entropy we have the estimator:
+into our strategy for estimating entropy, we have the estimator:
 ```math
 \hat{H}(Z) =
 -\frac{1}{N_Z} \sum_{i=1}^{N_Z}
@@ -271,7 +272,7 @@ into our strategy for estimating entropy we have the estimator:
 ```
 We then add the bias-correction term ``\ln k - \psi(k)``. ``\psi(x)`` is the digamma
 function. This gives us ``\hat{H}_{\text{KL}}``, the
-Kozachenko-Leonenko [^4] estimator of differential entropy:
+[Kozachenko-Leonenko](http://mi.mathnet.ru/eng/ppi/v23/i2/p9) estimator of differential entropy:
 ```math
 		\hat{H}_{\text{KL}}(Z) = -\psi(k) + \ln(N_Z - 1) + \ln c_{d, L}  
 		+ \frac{d}{N_Z} \sum_{i=1}^{N_Z}
@@ -282,19 +283,23 @@ surnames. This has caught me on a few occassions.
 
 Before we can move on, however, we need one more arrow in our quiver: a ``k``NN estimator of cross entropy.
 The differential cross entropy can be written as
-``H_A(\mathbf{Z}) = \mathbb{E}_{P(\mathbf{Z})}[-\ln p_A(\mathbf{z})]``. Here the probability density to which
+``H_A(\mathbf{Z}) = -\mathbb{E}_{P(\mathbf{Z})}[\ln p_A(\mathbf{z})]``. Here the probability density to which
 we apply the logarithm is different to the distribution over which we take the expectation. This actually starts
 to make a bit more intuitive sense when we start to think about how we would estimate the this
 quantity using a  ``k``-NN estimator. We have our set of sample points drawn from the distribution
 ``P(\mathbf{Z})``. We then draw another set of sample points from the distribution ``P_A(\mathbf{Z})``. We go through
 each point in the first set (because the expectation is over ``P(\mathbf{Z})``), and at each point find the
 ``k`` nearest neighbours *in the second set* (because we want the density ``p_A(\mathbf{z})``). We can then use
-the same expression that we did for the KL estimator of the entropy. The below diagram illustrates this process
+the same expression that we did for the KL estimator of the entropy. The below diagram illustrates this process.
+The blue dots represent the first set of samples drawn from ``P(\mathbf{Z})``. The red crosses represent the second set
+of samples drawn from ``P_A(\mathbf{Z})``.
 
 ![knn_cross](knn_cross.png)
 
-``k``-NN estimators of other information-theoretic quantities operate by decomposing the quantity into a
-sum of entropy and cross entropy terms. Each of these terms can then be estimated using ``\hat{H}_{\text{KL}}``. Sometimes,
+``k``-NN estimators of other information-theoretic quantities
+(such as [mutual information](https://doi.org/10.1103/PhysRevE.69.066138) and [KL divergence](https://doi.org/10.1109/TIT.2009.2016060))
+ operate by decomposing the quantity into a
+sum of entropy and cross-entropy terms. Each of these terms can then be estimated using ``\hat{H}_{\text{KL}}``. Sometimes,
 as in the case of the famous [KSG estimator](https://doi.org/10.1103/PhysRevE.69.066138) of mutual
 information, a scheme is divised whereby the same radius is used for a given point across multiple entropy terms.
 This [has been found](https://doi.org/10.1109/TIT.2018.2807481) to reduce the bias.
@@ -332,8 +337,8 @@ The situation can be remedied by re-writing our expression for the TE in continu
 		\bigg]
 ```
 See [our paper](https://doi.org/10.1101/2020.06.16.154377) for a derivation.
-As this expression has probability densities, as opposed to rates, it will yield entropy and cross
-entropy terms. The densities ``p_X`` refer to the probability density of histories
+As this expression has probability densities, as opposed to rates, it will yield entropy and cross-entropy
+terms. The densities ``p_X`` refer to the probability  density of histories
 observed at events in the target process and the densities ``p_U`` refer to the probability densities of histories
 observed anywhere in the time series, not conditioned on events in the target process. ``\bar{\lambda}_X`` is
 the average rate of events in the target process.
@@ -376,13 +381,3 @@ CoTETE.jl actually operates in a slightly more complicated fashion, utilising a 
 across entropy terms for a given point. See [our paper](https://doi.org/10.1101/2020.06.16.154377)
 section IV A 5
 for the details of this scheme.
-
-## References
-
-[^1]:Schreiber, T. (2000). Measuring information transfer. Physical review letters, 85(2), 461.
-
-[^2]: Bossomaier, T., Barnett, L., Harré, M., & Lizier, J. T. (2016). An introduction to transfer entropy. Cham: Springer International Publishing 65-95.
-
-[^3]: Lizier, J. T. (2012). The local information dynamics of distributed computation in complex systems. Springer Science & Business Media.
-
-[^4]: Kozachenko, L. F., & Leonenko, N. N. (1987). Sample estimate of the entropy of a random vector. Problemy Peredachi Informatsii, 23(2), 9-16.

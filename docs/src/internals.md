@@ -1,7 +1,11 @@
-# Internal Functions
+# Internal
 
 ```@meta
 CurrentModule = CoTETE
+```
+
+```@docs
+PreprocessedData
 ```
 
 ```@docs

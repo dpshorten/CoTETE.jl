@@ -4,6 +4,26 @@ push!(LOAD_PATH, "NearestNeighbors.jl/src/NearestNeighbors.jl")
 include("NearestNeighbors.jl/src/NearestNeighbors.jl")
 
 """
+    representation_joint::Array{<:AbstractFloat, 2}
+    exclusion_windows::Array{<:AbstractFloat}
+    representation_conditionals::Array{<:AbstractFloat}
+    sampled_representation_joint::Array{<:AbstractFloat}
+    sampled_exclusion_windows::Array{<:AbstractFloat}
+    sampled_representation_conditionals::Array{<:AbstractFloat}
+
+- `representation_joint::Array{<:AbstractFloat, 2}`: Contains the history representation of the source, target and
+  extra conditioning processes at each target event. Has dimension ``(l_X + l_Y + l_{Z_1}) \\times N_X``.
+"""
+struct PreprocessedData
+    representation_joint::Array{<:AbstractFloat, 2}
+    representation_conditionals::Array{<:AbstractFloat}
+    exclusion_windows::Array{<:AbstractFloat}
+    sampled_representation_joint::Array{<:AbstractFloat}
+    sampled_representation_conditionals::Array{<:AbstractFloat}
+    sampled_exclusion_windows::Array{<:AbstractFloat}
+end
+
+"""
     function make_one_embedding(
         time_point::AbstractFloat,
         event_time_arrays, #TODO: add type to this
@@ -84,9 +104,9 @@ end
 """
     function make_surrogate(
         representation_joint::Array{<:AbstractFloat},
-        joint_exclusion_windows::Array{<:AbstractFloat},
+        exclusion_windows::Array{<:AbstractFloat},
         dense_sampled_representation_joint::Array{<:AbstractFloat},
-        dense_sampled_joint_exclusion_windows::Array{<:AbstractFloat},
+        dense_sampled_exclusion_windows::Array{<:AbstractFloat},
         metric::Metric,
         l_x_plus_l_z::Integer,
         k_perm::Integer,
@@ -94,15 +114,15 @@ end
 """
 function make_surrogate(
     representation_joint::Array{<:AbstractFloat},
-    joint_exclusion_windows::Array{<:AbstractFloat},
+    exclusion_windows::Array{<:AbstractFloat},
     dense_sampled_representation_joint::Array{<:AbstractFloat},
-    dense_sampled_joint_exclusion_windows::Array{<:AbstractFloat},
+    dense_sampled_exclusion_windows::Array{<:AbstractFloat},
     metric::Metric,
     l_x_plus_l_z::Integer,
     k_perm::Integer,
 )
 
-    added_exclusion_windows = zeros(size(joint_exclusion_windows))
+    added_exclusion_windows = zeros(size(exclusion_windows))
 
     tree = NearestNeighbors.KDTree(
         dense_sampled_representation_joint[1:l_x_plus_l_z, :],
@@ -117,8 +137,8 @@ function make_surrogate(
         neighbour_indices, neighbour_radii = NearestNeighbors.knn(
             tree,
             new_joint[1:l_x_plus_l_z, permutation[i]],
-            joint_exclusion_windows[:, :, permutation[i]],
-            dense_sampled_joint_exclusion_windows,
+            exclusion_windows[:, :, permutation[i]],
+            dense_sampled_exclusion_windows,
             k_perm,
         )
         eligible_indices = neighbour_indices[findall(!in(used_indices), neighbour_indices)]
@@ -131,13 +151,13 @@ function make_surrogate(
         new_joint[(l_x_plus_l_z+1):end, permutation[i]] =
             dense_sampled_representation_joint[(l_x_plus_l_z+1):end, index]
         added_exclusion_windows[1, :, permutation[i]] =
-            dense_sampled_joint_exclusion_windows[1, :, index]
+            dense_sampled_exclusion_windows[1, :, index]
     end
 
-    new_joint_exclusion_windows = vcat(joint_exclusion_windows, added_exclusion_windows)
-    #new_joint_exclusion_windows = joint_exclusion_windows
+    new_exclusion_windows = vcat(exclusion_windows, added_exclusion_windows)
+    #new_exclusion_windows = exclusion_windows
 
-    return new_joint, new_joint_exclusion_windows
+    return new_joint, new_exclusion_windows
 
 end
 
@@ -195,7 +215,7 @@ function construct_history_embeddings(
 
     num_samples = Int(round(num_samples_ratio * num_target_events))
 
-    representation_joint, joint_exclusion_windows = make_embeddings_along_time_points(
+    representation_joint, exclusion_windows = make_embeddings_along_time_points(
         target_events,
         start_event,
         num_target_events,
@@ -205,11 +225,11 @@ function construct_history_embeddings(
 
 
     sample_points =
-        joint_exclusion_windows[1, 2, 1] .+
-        (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .* rand(num_samples)
+        exclusion_windows[1, 2, 1] .+
+        (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .* rand(num_samples)
     sort!(sample_points)
 
-    sampled_representation_joint, sampled_joint_exclusion_windows =
+    sampled_representation_joint, sampled_exclusion_windows =
         make_embeddings_along_time_points(
             sample_points,
             1,
@@ -221,11 +241,11 @@ function construct_history_embeddings(
     if is_surrogate
         surrogate_num_samples = Int(round(surrogate_num_samples_ratio * num_target_events))
         dense_sample_points =
-            joint_exclusion_windows[1, 2, 1] .+
-            (joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 2, 1]) .*
+            exclusion_windows[1, 2, 1] .+
+            (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .*
             rand(surrogate_num_samples)
         sort!(dense_sample_points)
-        dense_sampled_representation_joint, dense_sampled_joint_exclusion_windows =
+        dense_sampled_representation_joint, dense_sampled_exclusion_windows =
             make_embeddings_along_time_points(
                 dense_sample_points,
                 1,
@@ -234,11 +254,11 @@ function construct_history_embeddings(
                 [l_x, l_z, l_y],
             )
 
-        representation_joint, joint_exclusion_windows = make_surrogate(
+        representation_joint, exclusion_windows = make_surrogate(
             representation_joint,
-            joint_exclusion_windows,
+            exclusion_windows,
             dense_sampled_representation_joint,
-            dense_sampled_joint_exclusion_windows,
+            dense_sampled_exclusion_windows,
             metric,
             l_x + l_z,
             k_perm,
@@ -252,13 +272,13 @@ function construct_history_embeddings(
     representation_conditionals = representation_joint[1:(l_x+l_z), :]
     sampled_representation_conditionals = sampled_representation_joint[1:(l_x+l_z), :]
 
-    return (
+    return PreprocessedData(
         representation_joint,
-        joint_exclusion_windows,
         representation_conditionals,
+        exclusion_windows,
         sampled_representation_joint,
-        sampled_joint_exclusion_windows,
         sampled_representation_conditionals,
+        sampled_exclusion_windows,
     )
 
 end

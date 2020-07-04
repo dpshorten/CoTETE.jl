@@ -31,7 +31,7 @@ Estimates the TE from lists of raw event times.
 # Examples
 
 This example demonstrates estimating the TE between uncoupled homogeneous Poisson processes. This
-is covered in section II A of [^1].
+is covered in section II A of [our paper](https://doi.org/10.1101/2020.06.16.154377).
 We first create the source and target processes, each with 10 000 events and with rate 1, before
 running the estimator.
 ```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
@@ -78,8 +78,10 @@ true
 
 
 The next example applies the estimator to a more complex problem, specifically, the process
-described as example B in [^2]. The application of the estimator to this example is covered in
-section II B of [^1]. We create the source process as before. Howevever, the target process is
+described as example B in [Spinney et. al.](https://doi.org/10.1103/PhysRevE.95.032319).
+The application of the estimator to this example is covered in
+section II B of [our paper](https://doi.org/10.1101/2020.06.16.154377).
+We create the source process as before. Howevever, the target process is
 originally created as an homogeneous Poisson process with rate 10, before a thinning algorithm
 is applied to it, in order to provide the dependence on the source.
 
@@ -153,7 +155,8 @@ true
 - `conditioning_events::Array{<:AbstractFloat} = [0.0]`: A list of the raw event times in the target
   process. Corresponds to ``Z_1`` in [^1].
   !!! info "Single conditioning process"
-      Note that the framework developed in out paper [^1] considers an arbitrary number of extra
+      Note that although the framework developed in [our paper](https://doi.org/10.1101/2020.06.16.154377)
+      considers an arbitrary number of extra
       conditioning processes, at present the framework can only handle a single such process.
       This will change in future releases.
 - `l_z::Integer = 0`: The number of intervals in the single conditioning process to use in the
@@ -198,12 +201,7 @@ function calculate_TE_from_event_times(
     k_perm::Integer = 5,
 )
 
-    representation_joint,
-    joint_exclusion_windows,
-    representation_conditionals,
-    sampled_representation_joint,
-    sampled_joint_exclusion_windows,
-    sampled_representation_conditionals, = CoTETE.construct_history_embeddings(
+    preprocessed_data = CoTETE.construct_history_embeddings(
         target_events,
         source_events,
         l_x,
@@ -222,12 +220,7 @@ function calculate_TE_from_event_times(
     )
 
     TE = CoTETE.calculate_TE(
-        representation_joint,
-        representation_conditionals,
-        sampled_representation_joint,
-        sampled_representation_conditionals,
-        joint_exclusion_windows,
-        sampled_joint_exclusion_windows,
+        preprocessed_data,
         k_global = k_global,
         metric = metric,
     )
@@ -238,55 +231,45 @@ end
 
 """
     calculate_TE(
-        representation_joint::Array{<:AbstractFloat},
-        representation_conditionals::Array{<:AbstractFloat},
-        sampled_representation_joint::Array{<:AbstractFloat},
-        sampled_representation_conditionals::Array{<:AbstractFloat},
-        joint_exclusion_windows::Array{<:AbstractFloat},
-        sampled_joint_exclusion_windows::Array{<:AbstractFloat};
+        preprocessed_data::PreprocessedData;
         k_global::Integer = 5,
         metric::Metric = Euclidean(),
     )
 """
 function calculate_TE(
-    representation_joint::Array{<:AbstractFloat},
-    representation_conditionals::Array{<:AbstractFloat},
-    sampled_representation_joint::Array{<:AbstractFloat},
-    sampled_representation_conditionals::Array{<:AbstractFloat},
-    joint_exclusion_windows::Array{<:AbstractFloat},
-    sampled_joint_exclusion_windows::Array{<:AbstractFloat};
+    preprocessed_data::PreprocessedData;
     k_global::Integer = 5,
     metric::Metric = Euclidean(),
 )
 
-    time = joint_exclusion_windows[1, 2, end] - joint_exclusion_windows[1, 1, 1]
+    time = preprocessed_data.exclusion_windows[1, 2, end] - preprocessed_data.exclusion_windows[1, 1, 1]
 
-    tree_joint = NearestNeighbors.KDTree(representation_joint, metric, reorder = false)
+    tree_joint = NearestNeighbors.KDTree(preprocessed_data.representation_joint, metric, reorder = false)
 
-    tree_sampled_joint = NearestNeighbors.KDTree(sampled_representation_joint, metric, reorder = false)
+    tree_sampled_joint = NearestNeighbors.KDTree(preprocessed_data.sampled_representation_joint, metric, reorder = false)
 
-    tree_conditionals = NearestNeighbors.KDTree(representation_conditionals, metric, reorder = false)
+    tree_conditionals = NearestNeighbors.KDTree(preprocessed_data.representation_conditionals, metric, reorder = false)
 
-    tree_sampld_conditionals = NearestNeighbors.KDTree(sampled_representation_conditionals, metric, reorder = false)
+    tree_sampled_conditionals = NearestNeighbors.KDTree(preprocessed_data.sampled_representation_conditionals, metric, reorder = false)
 
-    l_y = size(representation_joint, 1) - size(representation_conditionals, 1)
-    l_x = size(representation_conditionals, 1)
+    l_y = size(preprocessed_data.representation_joint, 1) - size(preprocessed_data.representation_conditionals, 1)
+    l_x = size(preprocessed_data.representation_conditionals, 1)
 
     TE = 0
-    for i = 1:size(representation_joint, 2)
+    for i = 1:size(preprocessed_data.representation_joint, 2)
         indices_joint, radii_joint = NearestNeighbors.knn(
             tree_joint,
-            representation_joint[:, i],
-            joint_exclusion_windows[:, :, i],
-            joint_exclusion_windows,
+            preprocessed_data.representation_joint[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.exclusion_windows,
             k_global,
         )
 
         indices_sampled_joint, radii_sampled_joint = NearestNeighbors.knn(
             tree_sampled_joint,
-            representation_joint[:, i],
-            joint_exclusion_windows[:, :, i],
-            sampled_joint_exclusion_windows,
+            preprocessed_data.representation_joint[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.sampled_exclusion_windows,
             k_global,
         )
 
@@ -294,74 +277,80 @@ function calculate_TE(
 
         indices_conditionals, radii_conditionals = NearestNeighbors.knn(
             tree_conditionals,
-            representation_conditionals[:, i],
-            joint_exclusion_windows[:, :, i],
-            joint_exclusion_windows,
+            preprocessed_data.representation_conditionals[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.exclusion_windows,
             k_global,
         )
 
-        indices_sampld_conditionals, radii_sampld_conditionals = NearestNeighbors.knn(
-            tree_sampld_conditionals,
-            representation_conditionals[:, i],
-            joint_exclusion_windows[:, :, i],
-            sampled_joint_exclusion_windows,
+        indices_sampled_conditionals, radii_sampled_conditionals = NearestNeighbors.knn(
+            tree_sampled_conditionals,
+            preprocessed_data.representation_conditionals[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.sampled_exclusion_windows,
             k_global,
         )
 
-        radius_conditionals = max(maximum(radii_conditionals), maximum(radii_sampld_conditionals)) + 1e-6
+        radius_conditionals = max(maximum(radii_conditionals), maximum(radii_sampled_conditionals)) + 1e-6
 
         indices_joint = NearestNeighbors.inrange(
             tree_joint,
-            representation_joint[:, i],
-            joint_exclusion_windows[:, :, i],
-            joint_exclusion_windows,
+            preprocessed_data.representation_joint[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.exclusion_windows,
             radius_joint,
         )
 
         indices_sampled_joint = NearestNeighbors.inrange(
             tree_sampled_joint,
-            representation_joint[:, i],
-            joint_exclusion_windows[:, :, i],
-            sampled_joint_exclusion_windows,
+            preprocessed_data.representation_joint[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.sampled_exclusion_windows,
             radius_joint,
         )
 
         indices_conditionals = NearestNeighbors.inrange(
             tree_conditionals,
-            representation_conditionals[:, i],
-            joint_exclusion_windows[:, :, i],
-            joint_exclusion_windows,
+            preprocessed_data.representation_conditionals[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.exclusion_windows,
             radius_conditionals,
         )
 
-        indices_sampld_conditionals = NearestNeighbors.inrange(
-            tree_sampld_conditionals,
-            representation_conditionals[:, i],
-            joint_exclusion_windows[:, :, i],
-            sampled_joint_exclusion_windows,
+        indices_sampled_conditionals = NearestNeighbors.inrange(
+            tree_sampled_conditionals,
+            preprocessed_data.representation_conditionals[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.sampled_exclusion_windows,
             radius_conditionals,
         )
 
-        radius_joint = maximum(colwise(metric, representation_joint[:, i], representation_joint[:, indices_joint]))
-        radius_sampled_joint =
-            maximum(colwise(metric, representation_joint[:, i], sampled_representation_joint[:, indices_sampled_joint]))
+        radius_joint = maximum(colwise(
+            metric,
+            preprocessed_data.representation_joint[:, i],
+            preprocessed_data.representation_joint[:, indices_joint]
+        ))
+        radius_sampled_joint = maximum(colwise(
+            metric, preprocessed_data.representation_joint[:, i],
+            preprocessed_data.sampled_representation_joint[:, indices_sampled_joint]
+        ))
         radius_conditionals = maximum(colwise(
             metric,
-            representation_conditionals[:, i],
-            representation_conditionals[:, indices_conditionals],
+            preprocessed_data.representation_conditionals[:, i],
+            preprocessed_data.representation_conditionals[:, indices_conditionals],
         ))
-        radius_sampld_conditionals = maximum(colwise(
+        radius_sampled_conditionals = maximum(colwise(
             metric,
-            representation_conditionals[:, i],
-            sampled_representation_conditionals[:, indices_sampld_conditionals],
+            preprocessed_data.representation_conditionals[:, i],
+            preprocessed_data.sampled_representation_conditionals[:, indices_sampled_conditionals],
         ))
 
         TE += (
             -(l_x + l_y) * log(radius_joint) +
             (l_x + l_y) * log(radius_sampled_joint) +
-            (l_x) * log(radius_conditionals) - (l_x) * log(radius_sampld_conditionals) +
+            (l_x) * log(radius_conditionals) - (l_x) * log(radius_sampled_conditionals) +
             digamma(size(indices_joint)[1]) - digamma(size(indices_sampled_joint)[1]) -
-            digamma(size(indices_conditionals)[1]) + digamma(size(indices_sampld_conditionals)[1])
+            digamma(size(indices_conditionals)[1]) + digamma(size(indices_sampled_conditionals)[1])
         )
 
     end
