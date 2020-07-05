@@ -85,7 +85,10 @@ function make_one_embedding(
     for i = 1:length(event_time_arrays)
         # Embed the interval from the observation point to the most recent event (if necessary)
         if embedding_lengths[i] > 0
-            push!(embedding, observation_time_point - event_time_arrays[i][most_recent_event_indices[i]])
+            push!(
+                embedding,
+                observation_time_point - event_time_arrays[i][most_recent_event_indices[i]],
+            )
             push!(candidate_start_times, event_time_arrays[i][most_recent_event_indices[i]])
         end
         # Embed the subsequent inter-event intervals
@@ -154,12 +157,16 @@ function make_embeddings_along_observation_time_points(
         # Update the position of each tracker variable
         for i = 1:length(trackers)
             while (trackers[i] < length(event_time_arrays[i])) &&
-                  (event_time_arrays[i][trackers[i]+1] < observation_time_point)
+                (event_time_arrays[i][trackers[i]+1] < observation_time_point)
                 trackers[i] += 1
             end
         end
-        embedding, start_time =
-            make_one_embedding(observation_time_point, event_time_arrays, trackers, embedding_lengths)
+        embedding, start_time = make_one_embedding(
+            observation_time_point,
+            event_time_arrays,
+            trackers,
+            embedding_lengths,
+        )
         push!(embeddings, embedding)
         push!(exclusion_windows, [start_time, observation_time_point])
     end
@@ -196,7 +203,11 @@ function make_surrogate(
 
     added_exclusion_windows = zeros(size(exclusion_windows))
 
-    tree = NearestNeighbors.KDTree(dense_sampled_representation_joint[1:l_x_plus_l_z, :], metric, reorder = false)
+    tree = NearestNeighbors.KDTree(
+        dense_sampled_representation_joint[1:l_x_plus_l_z, :],
+        metric,
+        reorder = false,
+    )
 
     new_joint = copy(preprocessed_data.representation_joint)
     permutation = shuffle(collect(1:size(new_joint, 2)))
@@ -224,6 +235,35 @@ function make_surrogate(
     new_exclusion_windows = vcat(exclusion_windows, added_exclusion_windows)
 
     return new_joint, new_exclusion_windows
+end
+
+function make_AIS_surrogate(
+    target_events::Array{<:AbstractFloat},
+    preprocessed_data::PreprocessedData,
+    N_U::Integer,
+)
+    surrogate_preprocessed_data = deepcopy(preprocessed_data)
+    sample_points =
+        preprocessed_data.exclusion_windows[1, 2, 1] .+
+        (
+            preprocessed_data.exclusion_windows[1, 2, end] -
+            preprocessed_data.exclusion_windows[1, 2, 1]
+        ) .* rand(N_U)
+    sort!(sample_points)
+    resampled_representation_joint, resampled_exclusion_windows =
+        make_embeddings_along_observation_time_points(
+            sample_points,
+            1,
+            length(sample_points) - 2,
+            [target_events],
+            [preprocessed_data.l_x],
+        )
+    shuffled_indices_of_resample = shuffle(collect(1:size(resampled_representation_joint, 2)))
+    for i = 1:size(preprocessed_data.representation_joint, 2)
+        surrogate_preprocessed_data.representation_joint[:, i] =
+            resampled_representation_joint[:, shuffled_indices_of_resample[i]]
+    end
+    return surrogate_preprocessed_data
 end
 
 
@@ -269,8 +309,15 @@ function preprocess_data(
     if auto_find_start_and_num_events
         # This will ensure that we have at least enough events to make the target embedding
         start_event = l_x + 1
-        while source_events[l_y] > target_events[start_event]
-            start_event += 1
+        if l_y > 0
+            while source_events[l_y] > target_events[start_event]
+                start_event += 1
+            end
+        end
+        if l_z > 0
+            while conditioning_events[l_z] > target_events[start_event]
+                start_event += 1
+            end
         end
         num_target_events = length(target_events) - start_event
         if num_target_events_cap > 0 && num_target_events > num_target_events_cap
@@ -290,22 +337,25 @@ function preprocess_data(
 
 
     sample_points =
-        exclusion_windows[1, 2, 1] .+ (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .* rand(num_samples)
+        exclusion_windows[1, 2, 1] .+
+        (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .* rand(num_samples)
     sort!(sample_points)
 
-    sampled_representation_joint, sampled_exclusion_windows = make_embeddings_along_observation_time_points(
-        sample_points,
-        1,
-        length(sample_points) - 2,
-        [target_events, conditioning_events, source_events],
-        [l_x, l_z, l_y],
-    )
+    sampled_representation_joint, sampled_exclusion_windows =
+        make_embeddings_along_observation_time_points(
+            sample_points,
+            1,
+            length(sample_points) - 2,
+            [target_events, conditioning_events, source_events],
+            [l_x, l_z, l_y],
+        )
 
     if is_surrogate
         surrogate_num_samples = Int(round(surrogate_num_samples_ratio * num_target_events))
         dense_sample_points =
             exclusion_windows[1, 2, 1] .+
-            (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .* rand(surrogate_num_samples)
+            (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .*
+            rand(surrogate_num_samples)
         sort!(dense_sample_points)
         dense_sampled_representation_joint, dense_sampled_exclusion_windows =
             make_embeddings_along_observation_time_points(
@@ -341,7 +391,7 @@ function preprocess_data(
         sampled_exclusion_windows,
         l_x,
         l_y,
-        l_z
+        l_z,
     )
 
 end

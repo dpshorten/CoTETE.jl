@@ -7,6 +7,8 @@ using SpecialFunctions: digamma, gamma
 
 include("preprocessing.jl")
 
+struct NonZeroTEInferenceResult
+
 """
     function calculate_TE_from_event_times(
         target_events::Array{<:AbstractFloat},
@@ -230,6 +232,47 @@ function calculate_TE_from_event_times(
 
     return TE
 
+end
+
+function calculate_AIS_and_surrogates(
+    target_events::Array{<:AbstractFloat},
+    l_x::Integer;
+    auto_find_start_and_num_events::Bool = true,
+    num_target_events_cap::Integer = -1,
+    start_event::Integer = 1,
+    num_target_events::Integer = length(target_events) - start_event,
+    num_samples_ratio::AbstractFloat = 1.0,
+    k_global::Integer = 5,
+    metric::Metric = Euclidean(),
+    kraskov_noise_level::AbstractFloat = 1e-8,
+    num_surrogates::Integer = 100,
+    surrogate_num_samples_ratio::AbstractFloat = 1.0,
+)
+    preprocessed_data = CoTETE.preprocess_data(
+        target_events,
+        Float64[],
+        l_x,
+        0,
+        auto_find_start_and_num_events = auto_find_start_and_num_events,
+        num_target_events_cap = num_target_events_cap,
+        num_target_events = num_target_events,
+        num_samples_ratio = num_samples_ratio,
+        start_event = start_event,
+        surrogate_num_samples_ratio = surrogate_num_samples_ratio,
+    )
+
+    TE = -calculate_TE(preprocessed_data, k_global = k_global, metric = metric, AIS_only = true)
+    println(TE)
+
+    surrogate_preprocessed_data = CoTETE.make_AIS_surrogate(
+        target_events,
+        preprocessed_data,
+        Integer(round(
+            surrogate_num_samples_ratio * length(preprocessed_data.representation_joint),
+        )),
+    )
+    TE = -calculate_TE(surrogate_preprocessed_data, k_global = k_global, metric = metric, AIS_only = true)
+    println(TE)
 end
 
 """
