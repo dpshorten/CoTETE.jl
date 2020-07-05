@@ -39,11 +39,12 @@ The transformed data that is fed into the search trees.
 """
 struct PreprocessedData
     representation_joint::Array{<:AbstractFloat,2}
-    representation_conditionals::Array{<:AbstractFloat,2}
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
-    sampled_representation_conditionals::Array{<:AbstractFloat,2}
     sampled_exclusion_windows::Array{<:AbstractFloat,3}
+    l_x::Integer
+    l_y::Integer
+    l_z::Integer
 end
 
 """
@@ -327,19 +328,20 @@ function preprocess_data(
 
     end
 
-    representation_joint += noise_level .* randn(size(representation_joint))
-    sampled_representation_joint += noise_level .* randn(size(sampled_representation_joint))
+    #representation_joint += noise_level .* randn(size(representation_joint))
+    #sampled_representation_joint += noise_level .* randn(size(sampled_representation_joint))
 
-    representation_conditionals = representation_joint[1:(l_x+l_z), :]
-    sampled_representation_conditionals = sampled_representation_joint[1:(l_x+l_z), :]
+    #representation_conditionals = representation_joint[1:(l_x+l_z), :]
+    #sampled_representation_conditionals = sampled_representation_joint[1:(l_x+l_z), :]
 
     return PreprocessedData(
         representation_joint,
-        representation_conditionals,
         exclusion_windows,
         sampled_representation_joint,
-        sampled_representation_conditionals,
         sampled_exclusion_windows,
+        l_x,
+        l_y,
+        l_z
     )
 
 end

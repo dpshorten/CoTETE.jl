@@ -196,6 +196,8 @@ function calculate_TE_from_event_times(
     conditioning_events::Array{<:AbstractFloat} = [0.0],
     l_z::Integer = 0,
     metric::Metric = Euclidean(),
+    AIS_only::Bool = false,
+    kraskov_noise_level::AbstractFloat = 1e-8,
     is_surrogate::Bool = false,
     surrogate_num_samples_ratio::AbstractFloat = 1.0,
     k_perm::Integer = 5,
@@ -216,13 +218,14 @@ function calculate_TE_from_event_times(
         is_surrogate = is_surrogate,
         surrogate_num_samples_ratio = surrogate_num_samples_ratio,
         k_perm = k_perm,
-        metric = metric,
     )
 
     TE = CoTETE.calculate_TE(
         preprocessed_data,
         k_global = k_global,
         metric = metric,
+        AIS_only = AIS_only,
+        kraskov_noise_level = kraskov_noise_level,
     )
 
     return TE
@@ -240,44 +243,49 @@ function calculate_TE(
     preprocessed_data::PreprocessedData;
     k_global::Integer = 5,
     metric::Metric = Euclidean(),
+    AIS_only::Bool = false,
+    kraskov_noise_level::AbstractFloat = 1e-8,
 )
 
-    time = preprocessed_data.exclusion_windows[1, 2, end] - preprocessed_data.exclusion_windows[1, 1, 1]
+    # Lets declare these to make the rest of this function less verbose
+    l_x_plus_l_z = preprocessed_data.l_x + preprocessed_data.l_z
+    l_y = preprocessed_data.l_y
 
-    tree_joint = NearestNeighbors.KDTree(preprocessed_data.representation_joint, metric, reorder = false)
+    preprocessed_data.representation_joint[:, :] +=
+        kraskov_noise_level .* randn(size(preprocessed_data.representation_joint))
+    preprocessed_data.sampled_representation_joint[:, :] +=
+        kraskov_noise_level .* randn(size(preprocessed_data.sampled_representation_joint))
 
-    tree_sampled_joint = NearestNeighbors.KDTree(preprocessed_data.sampled_representation_joint, metric, reorder = false)
+    representation_conditionals = preprocessed_data.representation_joint[1:(l_x_plus_l_z), :]
+    sampled_representation_conditionals =
+        preprocessed_data.sampled_representation_joint[1:(l_x_plus_l_z), :]
 
-    tree_conditionals = NearestNeighbors.KDTree(preprocessed_data.representation_conditionals, metric, reorder = false)
+    time =
+        preprocessed_data.exclusion_windows[1, 2, end] -
+        preprocessed_data.exclusion_windows[1, 1, 1]
 
-    tree_sampled_conditionals = NearestNeighbors.KDTree(preprocessed_data.sampled_representation_conditionals, metric, reorder = false)
+    tree_joint =
+        NearestNeighbors.KDTree(preprocessed_data.representation_joint, metric, reorder = false)
 
-    l_y = size(preprocessed_data.representation_joint, 1) - size(preprocessed_data.representation_conditionals, 1)
-    l_x = size(preprocessed_data.representation_conditionals, 1)
+    tree_sampled_joint = NearestNeighbors.KDTree(
+        preprocessed_data.sampled_representation_joint,
+        metric,
+        reorder = false,
+    )
+
+    tree_conditionals =
+        NearestNeighbors.KDTree(representation_conditionals, metric, reorder = false)
+
+    tree_sampled_conditionals =
+        NearestNeighbors.KDTree(sampled_representation_conditionals, metric, reorder = false)
 
     TE = 0
     for i = 1:size(preprocessed_data.representation_joint, 2)
-        indices_joint, radii_joint = NearestNeighbors.knn(
-            tree_joint,
-            preprocessed_data.representation_joint[:, i],
-            preprocessed_data.exclusion_windows[:, :, i],
-            preprocessed_data.exclusion_windows,
-            k_global,
-        )
 
-        indices_sampled_joint, radii_sampled_joint = NearestNeighbors.knn(
-            tree_sampled_joint,
-            preprocessed_data.representation_joint[:, i],
-            preprocessed_data.exclusion_windows[:, :, i],
-            preprocessed_data.sampled_exclusion_windows,
-            k_global,
-        )
-
-        radius_joint = max(maximum(radii_joint), maximum(radii_sampled_joint)) + 1e-6
 
         indices_conditionals, radii_conditionals = NearestNeighbors.knn(
             tree_conditionals,
-            preprocessed_data.representation_conditionals[:, i],
+            representation_conditionals[:, i],
             preprocessed_data.exclusion_windows[:, :, i],
             preprocessed_data.exclusion_windows,
             k_global,
@@ -285,33 +293,19 @@ function calculate_TE(
 
         indices_sampled_conditionals, radii_sampled_conditionals = NearestNeighbors.knn(
             tree_sampled_conditionals,
-            preprocessed_data.representation_conditionals[:, i],
+            representation_conditionals[:, i],
             preprocessed_data.exclusion_windows[:, :, i],
             preprocessed_data.sampled_exclusion_windows,
             k_global,
         )
 
-        radius_conditionals = max(maximum(radii_conditionals), maximum(radii_sampled_conditionals)) + 1e-6
+        radius_conditionals =
+            max(maximum(radii_conditionals), maximum(radii_sampled_conditionals)) + 1e-6
 
-        indices_joint = NearestNeighbors.inrange(
-            tree_joint,
-            preprocessed_data.representation_joint[:, i],
-            preprocessed_data.exclusion_windows[:, :, i],
-            preprocessed_data.exclusion_windows,
-            radius_joint,
-        )
-
-        indices_sampled_joint = NearestNeighbors.inrange(
-            tree_sampled_joint,
-            preprocessed_data.representation_joint[:, i],
-            preprocessed_data.exclusion_windows[:, :, i],
-            preprocessed_data.sampled_exclusion_windows,
-            radius_joint,
-        )
 
         indices_conditionals = NearestNeighbors.inrange(
             tree_conditionals,
-            preprocessed_data.representation_conditionals[:, i],
+            representation_conditionals[:, i],
             preprocessed_data.exclusion_windows[:, :, i],
             preprocessed_data.exclusion_windows,
             radius_conditionals,
@@ -319,39 +313,83 @@ function calculate_TE(
 
         indices_sampled_conditionals = NearestNeighbors.inrange(
             tree_sampled_conditionals,
-            preprocessed_data.representation_conditionals[:, i],
+            representation_conditionals[:, i],
             preprocessed_data.exclusion_windows[:, :, i],
             preprocessed_data.sampled_exclusion_windows,
             radius_conditionals,
         )
 
-        radius_joint = maximum(colwise(
-            metric,
-            preprocessed_data.representation_joint[:, i],
-            preprocessed_data.representation_joint[:, indices_joint]
-        ))
-        radius_sampled_joint = maximum(colwise(
-            metric, preprocessed_data.representation_joint[:, i],
-            preprocessed_data.sampled_representation_joint[:, indices_sampled_joint]
-        ))
         radius_conditionals = maximum(colwise(
             metric,
-            preprocessed_data.representation_conditionals[:, i],
-            preprocessed_data.representation_conditionals[:, indices_conditionals],
+            representation_conditionals[:, i],
+            representation_conditionals[:, indices_conditionals],
         ))
+
         radius_sampled_conditionals = maximum(colwise(
             metric,
-            preprocessed_data.representation_conditionals[:, i],
-            preprocessed_data.sampled_representation_conditionals[:, indices_sampled_conditionals],
+            representation_conditionals[:, i],
+            sampled_representation_conditionals[:, indices_sampled_conditionals],
         ))
 
         TE += (
-            -(l_x + l_y) * log(radius_joint) +
-            (l_x + l_y) * log(radius_sampled_joint) +
-            (l_x) * log(radius_conditionals) - (l_x) * log(radius_sampled_conditionals) +
-            digamma(size(indices_joint)[1]) - digamma(size(indices_sampled_joint)[1]) -
-            digamma(size(indices_conditionals)[1]) + digamma(size(indices_sampled_conditionals)[1])
+            l_x_plus_l_z * log(radius_conditionals) -
+            l_x_plus_l_z * log(radius_sampled_conditionals) -
+            digamma(size(indices_conditionals)[1]) +
+            digamma(size(indices_sampled_conditionals)[1])
         )
+
+        if !AIS_only
+            indices_joint, radii_joint = NearestNeighbors.knn(
+                tree_joint,
+                preprocessed_data.representation_joint[:, i],
+                preprocessed_data.exclusion_windows[:, :, i],
+                preprocessed_data.exclusion_windows,
+                k_global,
+            )
+
+            indices_sampled_joint, radii_sampled_joint = NearestNeighbors.knn(
+                tree_sampled_joint,
+                preprocessed_data.representation_joint[:, i],
+                preprocessed_data.exclusion_windows[:, :, i],
+                preprocessed_data.sampled_exclusion_windows,
+                k_global,
+            )
+
+            radius_joint = max(maximum(radii_joint), maximum(radii_sampled_joint)) + 1e-6
+
+            indices_joint = NearestNeighbors.inrange(
+                tree_joint,
+                preprocessed_data.representation_joint[:, i],
+                preprocessed_data.exclusion_windows[:, :, i],
+                preprocessed_data.exclusion_windows,
+                radius_joint,
+            )
+
+            indices_sampled_joint = NearestNeighbors.inrange(
+                tree_sampled_joint,
+                preprocessed_data.representation_joint[:, i],
+                preprocessed_data.exclusion_windows[:, :, i],
+                preprocessed_data.sampled_exclusion_windows,
+                radius_joint,
+            )
+
+            radius_joint = maximum(colwise(
+                metric,
+                preprocessed_data.representation_joint[:, i],
+                preprocessed_data.representation_joint[:, indices_joint],
+            ))
+            radius_sampled_joint = maximum(colwise(
+                metric,
+                preprocessed_data.representation_joint[:, i],
+                preprocessed_data.sampled_representation_joint[:, indices_sampled_joint],
+            ))
+
+            TE += (
+                -(l_x_plus_l_z + l_y)log(radius_joint) +
+                (l_x_plus_l_z + l_y)log(radius_sampled_joint) +
+                digamma(size(indices_joint)[1]) - digamma(size(indices_sampled_joint)[1])
+            )
+        end
 
     end
 
