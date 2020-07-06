@@ -248,7 +248,7 @@ function make_AIS_surrogate(
         (
             preprocessed_data.exclusion_windows[1, 2, end] -
             preprocessed_data.exclusion_windows[1, 2, 1]
-        ) .* rand(N_U)
+        ) .* rand(N_U+2)
     sort!(sample_points)
     resampled_representation_joint, resampled_exclusion_windows =
         make_embeddings_along_observation_time_points(

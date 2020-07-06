@@ -4,10 +4,10 @@ export calculate_TE_from_event_times
 
 using Distances: evaluate, colwise, Metric, Chebyshev, Euclidean
 using SpecialFunctions: digamma, gamma
+using Statistics: mean, std
 
 include("preprocessing.jl")
 
-struct NonZeroTEInferenceResult
 
 """
     function calculate_TE_from_event_times(
@@ -262,17 +262,32 @@ function calculate_AIS_and_surrogates(
     )
 
     TE = -calculate_TE(preprocessed_data, k_global = k_global, metric = metric, AIS_only = true)
-    println(TE)
 
-    surrogate_preprocessed_data = CoTETE.make_AIS_surrogate(
-        target_events,
-        preprocessed_data,
-        Integer(round(
-            surrogate_num_samples_ratio * length(preprocessed_data.representation_joint),
-        )),
-    )
-    TE = -calculate_TE(surrogate_preprocessed_data, k_global = k_global, metric = metric, AIS_only = true)
-    println(TE)
+    surrogates = zeros(num_surrogates)
+    for i = 1:num_surrogates
+        surrogate_preprocessed_data = CoTETE.make_AIS_surrogate(
+            target_events,
+            preprocessed_data,
+            Integer(round(
+                surrogate_num_samples_ratio * length(preprocessed_data.representation_joint),
+            )),
+        )
+        surrogates[i] =
+            -calculate_TE(
+                surrogate_preprocessed_data,
+                k_global = k_global,
+                metric = metric,
+                AIS_only = true,
+            )
+    end
+    p = 0
+    for surrogate in surrogates
+        if surrogate >= TE
+            p += 1
+        end
+    end
+    #println(TE, " ", mean(surrogates), " ", std(surrogates))
+    return TE, surrogates, p
 end
 
 """
