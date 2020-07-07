@@ -448,7 +448,14 @@ function calculate_TE(
                 digamma(size(indices_joint)[1]) - digamma(size(indices_sampled_joint)[1])
             )
         end
+    end
 
+    if AIS_only
+        TE +=
+            size(preprocessed_data.representation_joint, 2) * (
+                log(size(representation_conditionals, 2) - 1) -
+                log(size(sampled_representation_conditionals, 2))
+            )
     end
 
     return (TE / (time))

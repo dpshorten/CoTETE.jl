@@ -95,6 +95,7 @@ function make_one_embedding(
         for j = 2:embedding_lengths[i]
             push!(
                 embedding,
+                #observation_time_point -
                 event_time_arrays[i][most_recent_event_indices[i]-j+2] -
                 event_time_arrays[i][most_recent_event_indices[i]-j+1],
             )
