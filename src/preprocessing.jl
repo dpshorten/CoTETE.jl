@@ -37,7 +37,7 @@ The transformed data that is fed into the search trees.
 - `sampled_exclusion_windows::Array{<:AbstractFloat, 3}`: Same as for the `exclusion_windows`, but contains the windows
   around the representations constructed at sample points.
 """
-struct PreprocessedData
+mutable struct PreprocessedData
     representation_joint::Array{<:AbstractFloat,2}
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
@@ -104,7 +104,7 @@ function make_one_embedding(
         end
     end
 
-    return embedding, minimum(candidate_start_times)
+    return embedding, (minimum(candidate_start_times))
 
 end
 
@@ -263,7 +263,9 @@ function make_AIS_surrogate(
     for i = 1:size(preprocessed_data.representation_joint, 2)
         surrogate_preprocessed_data.representation_joint[:, i] =
             resampled_representation_joint[:, shuffled_indices_of_resample[i]]
+        surrogate_preprocessed_data.exclusion_windows[1, :, i] = resampled_exclusion_windows[1, :, shuffled_indices_of_resample[i]]
     end
+
     return surrogate_preprocessed_data
 end
 
