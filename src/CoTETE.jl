@@ -269,7 +269,7 @@ function calculate_AIS_and_surrogates(
             target_events,
             preprocessed_data,
             Integer(round(
-                surrogate_num_samples_ratio * length(preprocessed_data.representation_joint),
+                surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2),
             )),
         )
         surrogates[i] =
@@ -318,9 +318,6 @@ function calculate_TE(
     sampled_representation_conditionals =
         preprocessed_data.sampled_representation_joint[1:(l_x_plus_l_z), :]
 
-    time =
-        preprocessed_data.exclusion_windows[1, 2, end] -
-        preprocessed_data.exclusion_windows[1, 1, 1]
 
     tree_joint =
         NearestNeighbors.KDTree(preprocessed_data.representation_joint, metric, reorder = false)
@@ -458,7 +455,7 @@ function calculate_TE(
             )
     end
 
-    return (TE / (time))
+    return (TE / (preprocessed_data.time_length))
 
 end
 

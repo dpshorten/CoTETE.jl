@@ -37,11 +37,12 @@ The transformed data that is fed into the search trees.
 - `sampled_exclusion_windows::Array{<:AbstractFloat, 3}`: Same as for the `exclusion_windows`, but contains the windows
   around the representations constructed at sample points.
 """
-mutable struct PreprocessedData
+struct PreprocessedData
     representation_joint::Array{<:AbstractFloat,2}
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
     sampled_exclusion_windows::Array{<:AbstractFloat,3}
+    time_length::AbstractFloat
     l_x::Integer
     l_y::Integer
     l_z::Integer
@@ -256,15 +257,19 @@ function make_AIS_surrogate(
             sample_points,
             1,
             length(sample_points) - 2,
-            [target_events],
-            [preprocessed_data.l_x],
+            [target_events, Float64[], Float64[]],
+            [preprocessed_data.l_x, 0, 0],
         )
     shuffled_indices_of_resample = shuffle(collect(1:size(resampled_representation_joint, 2)))
-    for i = 1:size(preprocessed_data.representation_joint, 2)
-        surrogate_preprocessed_data.representation_joint[:, i] =
+    new_exclusion_windows = zeros(size(surrogate_preprocessed_data.exclusion_windows))
+    new_representation_joint = zeros(size(surrogate_preprocessed_data.representation_joint))
+    for i = 1:size(surrogate_preprocessed_data.representation_joint, 2)
+        new_representation_joint[:, i] =
             resampled_representation_joint[:, shuffled_indices_of_resample[i]]
-        surrogate_preprocessed_data.exclusion_windows[1, :, i] = resampled_exclusion_windows[1, :, shuffled_indices_of_resample[i]]
+        new_exclusion_windows[:, :, i] = resampled_exclusion_windows[:, :, shuffled_indices_of_resample[i]]
     end
+    surrogate_preprocessed_data.representation_joint[:, :] = new_representation_joint
+    surrogate_preprocessed_data.exclusion_windows[:, :, :] = new_exclusion_windows
 
     return surrogate_preprocessed_data
 end
@@ -392,6 +397,7 @@ function preprocess_data(
         exclusion_windows,
         sampled_representation_joint,
         sampled_exclusion_windows,
+        exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1],
         l_x,
         l_y,
         l_z,
