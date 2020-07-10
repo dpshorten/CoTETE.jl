@@ -2,12 +2,30 @@ module CoTETE
 
 export calculate_TE_from_event_times
 
+using Parameters
 using Distances: evaluate, colwise, Metric, Chebyshev, Euclidean
 using SpecialFunctions: digamma, gamma
 using Statistics: mean, std
 
 include("preprocessing.jl")
 
+@with_kw struct CoTETEParameters
+    l_x::Integer = 0
+    l_y::Integer = 0
+    auto_find_start_and_num_events::Bool = true
+    num_target_events_cap::Integer = -1
+    start_event::Integer = 1
+    num_target_events::Integer = length(target_events)
+    num_samples_ratio::AbstractFloat = 1.0
+    k_global::Integer = 5
+    l_z::Integer = 0
+    metric::Metric = Euclidean()
+    AIS_only::Bool = false
+    kraskov_noise_level::AbstractFloat = 1e-8
+    is_surrogate::Bool = false
+    surrogate_num_samples_ratio::AbstractFloat = 1.0
+    k_perm::Integer = 5
+end
 
 """
     function calculate_TE_from_event_times(
@@ -185,50 +203,20 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
 
 """
 function calculate_TE_from_event_times(
+    parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat},
-    source_events::Array{<:AbstractFloat},
-    l_x::Integer,
-    l_y::Integer;
-    auto_find_start_and_num_events::Bool = true,
-    num_target_events_cap::Integer = -1,
-    start_event::Integer = 1,
-    num_target_events::Integer = length(target_events) - start_event,
-    num_samples_ratio::AbstractFloat = 1.0,
-    k_global::Integer = 5,
-    conditioning_events::Array{<:AbstractFloat} = [0.0],
-    l_z::Integer = 0,
-    metric::Metric = Euclidean(),
-    AIS_only::Bool = false,
-    kraskov_noise_level::AbstractFloat = 1e-8,
-    is_surrogate::Bool = false,
-    surrogate_num_samples_ratio::AbstractFloat = 1.0,
-    k_perm::Integer = 5,
+    source_events::Array{<:AbstractFloat};
+    conditioning_events::Array{<:AbstractFloat} = Float32[],
 )
 
     preprocessed_data = CoTETE.preprocess_data(
+        parameters,
         target_events,
         source_events,
-        l_x,
-        l_y,
-        auto_find_start_and_num_events = auto_find_start_and_num_events,
-        num_target_events_cap = num_target_events_cap,
-        num_target_events = num_target_events,
-        num_samples_ratio = num_samples_ratio,
-        start_event = start_event,
         conditioning_events = conditioning_events,
-        l_z = l_z,
-        is_surrogate = is_surrogate,
-        surrogate_num_samples_ratio = surrogate_num_samples_ratio,
-        k_perm = k_perm,
     )
 
-    TE = CoTETE.calculate_TE(
-        preprocessed_data,
-        k_global = k_global,
-        metric = metric,
-        AIS_only = AIS_only,
-        kraskov_noise_level = kraskov_noise_level,
-    )
+    TE = CoTETE.calculate_TE(parameters, preprocessed_data)
 
     return TE
 
@@ -298,11 +286,8 @@ end
     )
 """
 function calculate_TE(
+    parameters::CoTETEParameters,
     preprocessed_data::PreprocessedData;
-    k_global::Integer = 5,
-    metric::Metric = Euclidean(),
-    AIS_only::Bool = false,
-    kraskov_noise_level::AbstractFloat = 1e-8,
 )
 
     # Lets declare these to make the rest of this function less verbose
