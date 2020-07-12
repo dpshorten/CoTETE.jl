@@ -8,33 +8,42 @@ using SpecialFunctions: digamma, gamma
 using Statistics: mean, std
 
 """
-    l_x::Integer = 0
-    l_y::Integer = 0
-    auto_find_start_and_num_events::Bool = true
-    num_target_events_cap::Integer = -1
-    start_event::Integer = 1
-    num_target_events::Integer = 0
-    num_samples_ratio::AbstractFloat = 1.0
-    k_global::Integer = 5
-    l_z::Integer = 0
-    metric::Metric = Euclidean()
-    AIS_only::Bool = false
-    kraskov_noise_level::AbstractFloat = 1e-8
-    is_surrogate::Bool = false
-    surrogate_num_samples_ratio::AbstractFloat = 1.0
-    k_perm::Integer = 5
+    struct CoTETEParameters
+        l_x::Integer = 0
+        l_y::Integer = 0
+        l_z::Integer = 0
+        auto_find_start_and_num_events::Bool = true
+        num_target_events_cap::Integer = -1
+        start_event::Integer = 1
+        num_target_events::Integer = 0
+        num_samples_ratio::AbstractFloat = 1.0
+        k_global::Integer = 5
+        metric::Metric = Euclidean()
+        kraskov_noise_level::AbstractFloat = 1e-8
+        num_surrogates::Integer = 100
+        surrogate_num_samples_ratio::AbstractFloat = 1.0
+        k_perm::Integer = 5
+    end
 
 - `l_x::Integer`: The number of intervals in the target process to use in the history embeddings.
   Corresponds to ``l_X`` in [^1].
 - `l_y::Integer`: The number of intervals in the source process to use in the history embeddings.
   Corresponds to ``l_Y`` in [^1].
+- `l_z::Integer = 0`: The number of intervals in the single conditioning process to use in the
+  history embeddings. Corresponds to ``l_{Z_1}`` in [^1].
+  !!! info "Single conditioning process"
+      Note that although the framework developed in [our paper](https://doi.org/10.1101/2020.06.16.154377)
+      considers an arbitrary number of extra
+      conditioning processes, at present the framework can only handle a single such process.
+      This will change in future releases.
 - `auto_find_start_and_num_events::Bool = true`: When set to true, the start event will be set to
   the first event for which there are sufficient preceding events in all processes such that the
   embeddings can be constructed. The number of target events will be set such that all time between
   this first event and the last target event is included.
+-  `num_target_events_cap::Integer = -1`
 - `start_event::Integer = 1`: only used when `auto_find_start_and_num_events = false`. The index
   of the event in the target process from which to start the analysis.
-- `num_target_events::Integer = length(target_events) - start_event`: only used when
+- `num_target_events::Integer = 0`: only used when
   `auto_find_start_and_num_events = false`. The TE will be calculated on the time series from the
   timestamp of the `start_event`-th event of the target process to the timestamp of the
   `start_event + num_target_events`-th event of the target process.
@@ -43,19 +52,8 @@ using Statistics: mean, std
   This number of samples will be `num_samples_ratio * num_target_events`.
   Corresponds to ``N_U/N_X`` in [^1].
 - `k_global::Integer = 5`: The number of nearest neighbours to consider in initial searches.
-- `conditioning_events::Array{<:AbstractFloat} = [0.0]`: A list of the raw event times in the target
-  process. Corresponds to ``Z_1`` in [^1].
-!!! info "Single conditioning process"
-  Note that although the framework developed in [our paper](https://doi.org/10.1101/2020.06.16.154377)
-  considers an arbitrary number of extra
-  conditioning processes, at present the framework can only handle a single such process.
-  This will change in future releases.
-- `l_z::Integer = 0`: The number of intervals in the single conditioning process to use in the
-  history embeddings. Corresponds to ``l_{Z_1}`` in [^1].
 - `metric::Metric = Euclidean()`: The metric to use for nearest neighbour and radius searches.
-- `is_surrogate::Bool = false`: If set to `true`, after the embeddings have been constructed, but
-  before the TE is estimated, the source embeddings are permuted according to our local permutation
-  scheme.
+- `num_surrogates::Integer = 100`:
 - `surrogate_num_samples_ratio::AbstractFloat = 1.0`: Controls the number of samples used to
   to construct the alternate set of history embeddings used by our local permutation scheme.
   This number of samples will be `surrogate_num_samples_ratio * num_target_events`.
@@ -75,29 +73,22 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
 @with_kw struct CoTETEParameters
     l_x::Integer = 0
     l_y::Integer = 0
+    l_z::Integer = 0
     auto_find_start_and_num_events::Bool = true
     num_target_events_cap::Integer = -1
     start_event::Integer = 1
     num_target_events::Integer = 0
     num_samples_ratio::AbstractFloat = 1.0
     k_global::Integer = 5
-    l_z::Integer = 0
     metric::Metric = Euclidean()
     AIS_only::Bool = false
     kraskov_noise_level::AbstractFloat = 1e-8
-    is_surrogate::Bool = false
+    num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
     k_perm::Integer = 5
 end
 
 include("preprocessing.jl")
-
-
-
-
-
-
-
 
 
 """
@@ -109,6 +100,12 @@ include("preprocessing.jl")
     )
 
 Estimate the TE from lists of raw event times.
+
+!!! info "Single conditioning process"
+      Note that although the framework developed in [our paper](https://doi.org/10.1101/2020.06.16.154377)
+      considers an arbitrary number of extra
+      conditioning processes, at present the framework can only handle a single such process.
+      This will change in future releases.
 
 # Examples
 
@@ -231,14 +228,14 @@ function calculate_TE_from_event_times(
     conditioning_events::Array{<:AbstractFloat} = Float32[],
 )
 
-    preprocessed_data = CoTETE.preprocess_data(
+    preprocessed_data = CoTETE.preprocess_event_times(
         parameters,
         target_events,
         source_events = source_events,
         conditioning_events = conditioning_events,
     )
 
-    TE = CoTETE.calculate_TE(parameters, preprocessed_data)
+    TE = CoTETE.calculate_TE_from_preprocessed_data(parameters, preprocessed_data)
 
     return TE
 
@@ -258,7 +255,7 @@ function calculate_AIS_and_surrogates(
     num_surrogates::Integer = 100,
     surrogate_num_samples_ratio::AbstractFloat = 1.0,
 )
-    preprocessed_data = CoTETE.preprocess_data(
+    preprocessed_data = CoTETE.preprocess_event_times(
         target_events,
         Float64[],
         l_x,
@@ -271,7 +268,13 @@ function calculate_AIS_and_surrogates(
         surrogate_num_samples_ratio = surrogate_num_samples_ratio,
     )
 
-    TE = -calculate_TE(preprocessed_data, k_global = k_global, metric = metric, AIS_only = true)
+    TE =
+        -calculate_TE_from_preprocessed_data(
+            preprocessed_data,
+            k_global = k_global,
+            metric = metric,
+            AIS_only = true,
+        )
 
     surrogates = zeros(num_surrogates)
     for i = 1:num_surrogates
@@ -283,7 +286,7 @@ function calculate_AIS_and_surrogates(
             )),
         )
         surrogates[i] =
-            -calculate_TE(
+            -calculate_TE_from_preprocessed_data(
                 surrogate_preprocessed_data,
                 k_global = k_global,
                 metric = metric,
@@ -301,24 +304,47 @@ function calculate_AIS_and_surrogates(
 end
 
 """
-    calculate_TE(
-        preprocessed_data::PreprocessedData;
-        k_global::Integer = 5,
-        metric::Metric = Euclidean(),
-    )
+    calculate_TE_from_preprocessed_data(parameters::CoTETEParameters, preprocessed_data::PreprocessedData)
+
+calculates the TE using the preprocessed data and the given parameters.
+
+```jldoctest calculate_TE_from_preprocessed_data; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+julia> source = sort(1e4*rand(Int(1e4)));
+
+julia> target = sort(1e4*rand(Int(1e4)));
+
+julia> using CoTETE
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+
+julia> preprocessed_data = CoTETE.preprocess_event_times(parameters, target, source_events = source);
+
+julia> TE = CoTETE.calculate_TE_from_preprocessed_data(parameters, preprocessed_data)
+0.0
+
+julia> abs(TE - 0) < 0.05 # For Doctesting purposes
+true
+
+```
 """
-function calculate_TE(parameters::CoTETEParameters, preprocessed_data::PreprocessedData;)
+function calculate_TE_from_preprocessed_data(
+    parameters::CoTETEParameters,
+    preprocessed_data::PreprocessedData,
+    AIS_only::Bool = false,
+)
 
     # Lets declare these to make the rest of this function less verbose
     l_x_plus_l_z = parameters.l_x + parameters.l_z
     l_y = parameters.l_y
 
+    # Add a bit of noise as recommended Kraskov
     preprocessed_data.representation_joint[:, :] +=
         parameters.kraskov_noise_level .* randn(size(preprocessed_data.representation_joint))
     preprocessed_data.sampled_representation_joint[:, :] +=
         parameters.kraskov_noise_level .*
         randn(size(preprocessed_data.sampled_representation_joint))
 
+    # Pull out the conditionals from the joint
     representation_conditionals = preprocessed_data.representation_joint[1:(l_x_plus_l_z), :]
     sampled_representation_conditionals =
         preprocessed_data.sampled_representation_joint[1:(l_x_plus_l_z), :]
@@ -347,64 +373,67 @@ function calculate_TE(parameters::CoTETEParameters, preprocessed_data::Preproces
 
     TE = 0
     for i = 1:size(preprocessed_data.representation_joint, 2)
+        indices_conditionals_from_knn_search, radii_conditionals_from_knn_search =
+            NearestNeighbors.knn(
+                tree_conditionals,
+                representation_conditionals[:, i],
+                preprocessed_data.exclusion_windows[:, :, i],
+                preprocessed_data.exclusion_windows,
+                parameters.k_global,
+            )
 
+        indices_sampled_conditionals_from_knn_search, radii_sampled_conditionals_from_knn_search =
+            NearestNeighbors.knn(
+                tree_sampled_conditionals,
+                representation_conditionals[:, i],
+                preprocessed_data.exclusion_windows[:, :, i],
+                preprocessed_data.sampled_exclusion_windows,
+                parameters.k_global,
+            )
 
-        indices_conditionals, radii_conditionals = NearestNeighbors.knn(
+        maximum_radius_conditionals_from_both_knn_searches =
+            max(
+                maximum(radii_conditionals_from_knn_search),
+                maximum(radii_sampled_conditionals_from_knn_search),
+            ) + 1e-6 #TODO make this more well-grounded
+
+        indices_conditionals_from_radius_search = NearestNeighbors.inrange(
             tree_conditionals,
             representation_conditionals[:, i],
             preprocessed_data.exclusion_windows[:, :, i],
             preprocessed_data.exclusion_windows,
-            parameters.k_global,
+            maximum_radius_conditionals_from_both_knn_searches,
         )
 
-        indices_sampled_conditionals, radii_sampled_conditionals = NearestNeighbors.knn(
-            tree_sampled_conditionals,
-            representation_conditionals[:, i],
-            preprocessed_data.exclusion_windows[:, :, i],
-            preprocessed_data.sampled_exclusion_windows,
-            parameters.k_global,
-        )
-
-        radius_conditionals =
-            max(maximum(radii_conditionals), maximum(radii_sampled_conditionals)) + 1e-6
-
-        indices_conditionals = NearestNeighbors.inrange(
-            tree_conditionals,
-            representation_conditionals[:, i],
-            preprocessed_data.exclusion_windows[:, :, i],
-            preprocessed_data.exclusion_windows,
-            radius_conditionals,
-        )
-
-        indices_sampled_conditionals = NearestNeighbors.inrange(
-            tree_sampled_conditionals,
-            representation_conditionals[:, i],
-            preprocessed_data.exclusion_windows[:, :, i],
-            preprocessed_data.sampled_exclusion_windows,
-            radius_conditionals,
-        )
-
-        radius_conditionals = maximum(colwise(
+        radius_conditionals_inside_first_radius = maximum(colwise(
             parameters.metric,
             representation_conditionals[:, i],
-            representation_conditionals[:, indices_conditionals],
+            representation_conditionals[:, indices_conditionals_from_radius_search],
         ))
 
-        radius_sampled_conditionals = maximum(colwise(
+        indices_sampled_conditionals_from_radius_search = NearestNeighbors.inrange(
+            tree_sampled_conditionals,
+            representation_conditionals[:, i],
+            preprocessed_data.exclusion_windows[:, :, i],
+            preprocessed_data.sampled_exclusion_windows,
+            maximum_radius_conditionals_from_both_knn_searches,
+        )
+
+        radius_sampled_conditionals_inside_first_radius = maximum(colwise(
             parameters.metric,
             representation_conditionals[:, i],
-            sampled_representation_conditionals[:, indices_sampled_conditionals],
+            sampled_representation_conditionals[:, indices_sampled_conditionals_from_radius_search],
         ))
 
         TE += (
-            l_x_plus_l_z * log(radius_conditionals) -
-            l_x_plus_l_z * log(radius_sampled_conditionals) -
-            digamma(size(indices_conditionals)[1]) +
-            digamma(size(indices_sampled_conditionals)[1])
+            l_x_plus_l_z * log(radius_conditionals_inside_first_radius) -
+            l_x_plus_l_z * log(radius_sampled_conditionals_inside_first_radius) -
+            digamma(size(indices_conditionals_from_radius_search)[1]) +
+            digamma(size(indices_sampled_conditionals_from_radius_search)[1])
         )
 
         if !parameters.AIS_only
-            indices_joint, radii_joint = NearestNeighbors.knn(
+            indices_joint_from_knn_search, radii_joint_from_knn_search = NearestNeighbors.knn(
                 tree_joint,
                 preprocessed_data.representation_joint[:, i],
                 preprocessed_data.exclusion_windows[:, :, i],
@@ -412,47 +441,54 @@ function calculate_TE(parameters::CoTETEParameters, preprocessed_data::Preproces
                 parameters.k_global,
             )
 
-            indices_sampled_joint, radii_sampled_joint = NearestNeighbors.knn(
-                tree_sampled_joint,
-                preprocessed_data.representation_joint[:, i],
-                preprocessed_data.exclusion_windows[:, :, i],
-                preprocessed_data.sampled_exclusion_windows,
-                parameters.k_global,
-            )
+            indices_sampled_joint_from_knn_search, radii_sampled_joint_from_knn_search =
+                NearestNeighbors.knn(
+                    tree_sampled_joint,
+                    preprocessed_data.representation_joint[:, i],
+                    preprocessed_data.exclusion_windows[:, :, i],
+                    preprocessed_data.sampled_exclusion_windows,
+                    parameters.k_global,
+                )
 
-            radius_joint = max(maximum(radii_joint), maximum(radii_sampled_joint)) + 1e-6
+            maximum_radius_joint_from_both_knn_searches =
+                max(
+                    maximum(radii_joint_from_knn_search),
+                    maximum(radii_sampled_joint_from_knn_search),
+                ) + 1e-6
 
-            indices_joint = NearestNeighbors.inrange(
+            indices_joint_from_radius_search = NearestNeighbors.inrange(
                 tree_joint,
                 preprocessed_data.representation_joint[:, i],
                 preprocessed_data.exclusion_windows[:, :, i],
                 preprocessed_data.exclusion_windows,
-                radius_joint,
+                maximum_radius_joint_from_both_knn_searches,
             )
 
-            indices_sampled_joint = NearestNeighbors.inrange(
-                tree_sampled_joint,
-                preprocessed_data.representation_joint[:, i],
-                preprocessed_data.exclusion_windows[:, :, i],
-                preprocessed_data.sampled_exclusion_windows,
-                radius_joint,
-            )
-
-            radius_joint = maximum(colwise(
+            radius_joint_inside_first_radius = maximum(colwise(
                 parameters.metric,
                 preprocessed_data.representation_joint[:, i],
-                preprocessed_data.representation_joint[:, indices_joint],
+                preprocessed_data.representation_joint[:, indices_joint_from_radius_search],
             ))
-            radius_sampled_joint = maximum(colwise(
+
+            indices_sampled_joint_from_radius_search = NearestNeighbors.inrange(
+                tree_sampled_joint,
+                preprocessed_data.representation_joint[:, i],
+                preprocessed_data.exclusion_windows[:, :, i],
+                preprocessed_data.sampled_exclusion_windows,
+                maximum_radius_joint_from_both_knn_searches,
+            )
+
+
+            radius_sampled_joint_inside_first_radius = maximum(colwise(
                 parameters.metric,
                 preprocessed_data.representation_joint[:, i],
-                preprocessed_data.sampled_representation_joint[:, indices_sampled_joint],
+                preprocessed_data.sampled_representation_joint[:, indices_sampled_joint_from_radius_search],
             ))
 
             TE += (
-                -(l_x_plus_l_z + l_y)log(radius_joint) +
-                (l_x_plus_l_z + l_y)log(radius_sampled_joint) +
-                digamma(size(indices_joint)[1]) - digamma(size(indices_sampled_joint)[1])
+                -(l_x_plus_l_z + l_y)log(radius_joint_inside_first_radius) +
+                (l_x_plus_l_z + l_y)log(radius_sampled_joint_inside_first_radius) +
+                digamma(size(indices_joint_from_radius_search)[1]) - digamma(size(indices_sampled_joint_from_radius_search)[1])
             )
         end
     end
@@ -465,7 +501,7 @@ function calculate_TE(parameters::CoTETEParameters, preprocessed_data::Preproces
             )
     end
 
-    return (TE / (preprocessed_data.time_length))
+    return (TE / (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp))
 
 end
 

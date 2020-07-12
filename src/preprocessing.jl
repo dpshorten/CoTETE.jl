@@ -10,16 +10,19 @@ include("NearestNeighbors.jl/src/NearestNeighbors.jl")
     sampled_representation_joint::Array{<:AbstractFloat, 2}
     sampled_representation_conditionals::Array{<:AbstractFloat, 2}
     sampled_exclusion_windows::Array{<:AbstractFloat, 3}
+    start_timestamp::AbstractFloat
+    end_timestamp::AbstractFloat
 
 The transformed data that is fed into the search trees.
 
 - `representation_joint::Array{<:AbstractFloat, 2}`: Contains the history representation of the source, target and
-  extra conditioning processes at each target event. Has dimension ``(l_X + l_Y + l_{Z_1}) \\times N_X``. Rows 1 to
-  ``l_X`` (inclusive) contain the components relating to the target process. Rows ``l_X + 1`` to ``l_X + l_Y`` contain the
-  components relating to the source process. Rows ``l_X l_Y + 1`` to ``l_X + l_Y + l_{Z_1}`` contain the
-  components relating to the conditioning process. A similar convention applies to all the other representation variables.
-- `representation_conditionals::Array{<:AbstractFloat, 2}`: Contains the history representation of the target and
-  extra conditioning processes at each target event. Has dimension ``(l_X + l_{Z_1}) \\times N_X``.
+  extra conditioning process at each target event. Has dimension ``(l_X + l_{Z_1} + l_Y) \\times N_X``. Rows 1 to
+  ``l_X`` (inclusive) contain the components relating to the target process. Rows ``l_X + 1`` to ``l_X + l_{Z_1}`` contain the
+  components relating to the conditioning process. Rows ``l_X  + l_{Z_1} + 1`` to ``l_X + l_{Z_1} + l_Y`` contain the
+  components relating to the source process. A similar convention is used by `sampled_representation_joint`.
+  Note that we do not include an array in this struct to keep track of the history embeddings for the conditioning variables.
+  This is because this array is simply the first ``l_X + l_{Z_1}`` rows of this array and so can easily be constructed on the
+  fly later.
 - `exclusion_windows::Array{<:AbstractFloat, 3}`: Contains records of the time windows around each representation made at
   target events which must be excluded when doing ``k``NN searches from that representation. By default, each representation has
   the window that is bound to the left by the first point in
@@ -31,18 +34,20 @@ The transformed data that is fed into the search trees.
   Using separate sets of windows would allow them to be slightly smaller, but the effect will be negligible for longer
   processes.
 - `sampled_representation_joint::Array{<:AbstractFloat, 2}`: Contains the history representation of the source, target and
-  extra conditioning processes at each sample point. Has dimension ``(l_X + l_Y + l_{Z_1}) \\times N_U``.
-- `sampled_representation_conditionals::Array{<:AbstractFloat, 2}`: Contains the history representation of the target and
-  extra conditioning processes at each sample point. Has dimension ``(l_X + l_{Z_1}) \\times N_U``.
+  extra conditioning processes at each sample point. Has dimension ``(l_X + l_Y + l_{Z_1}) \\times N_U``. See the description of
+  `representation_joint` for a description of how the variables are split accross the dimensions.
 - `sampled_exclusion_windows::Array{<:AbstractFloat, 3}`: Same as for the `exclusion_windows`, but contains the windows
   around the representations constructed at sample points.
+- `start_timestamp::AbstractFloat`: The raw timestamp of the first target event that is included in the analysis.
+- `end_timestamp::AbstractFloat`: The raw timestamp of the last target event that is included in the analysis.
 """
 struct PreprocessedData
     representation_joint::Array{<:AbstractFloat,2}
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
     sampled_exclusion_windows::Array{<:AbstractFloat,3}
-    time_length::AbstractFloat
+    start_timestamp::AbstractFloat
+    end_timestamp::AbstractFloat
 end
 
 """
@@ -58,7 +63,7 @@ used in the construction of the embedding. This is used for recording the exclus
 
 # Example
 
-```jldoctest calculate_TE_from_event_times
+```jldoctest
 julia> source = cumsum(ones(20)) .- 0.5; # source is {0.5, 1.5, 2.5, ...}
 
 julia> conditional = cumsum(ones(20)) .- 0.25; # conditional is {0.75, 1.75, 2.75, ...}
@@ -120,7 +125,7 @@ assumed to be sorted. Also returns the exlcusion windows.
 
 # Example
 
-```jldoctest calculate_TE_from_event_times
+```jldoctest
 julia> source = cumsum(ones(20)) .- 0.5; # source is {0.5, 1.5, 2.5, ...}
 
 julia> conditional = cumsum(ones(20)) .- 0.25; # conditional is {0.75, 1.75, 2.75, ...}
@@ -247,7 +252,7 @@ function make_AIS_surrogate(
         (
             preprocessed_data.exclusion_windows[1, 2, end] -
             preprocessed_data.exclusion_windows[1, 2, 1]
-        ) .* rand(N_U+2)
+        ) .* rand(N_U + 2)
     sort!(sample_points)
     resampled_representation_joint, resampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
@@ -263,7 +268,8 @@ function make_AIS_surrogate(
     for i = 1:size(surrogate_preprocessed_data.representation_joint, 2)
         new_representation_joint[:, i] =
             resampled_representation_joint[:, shuffled_indices_of_resample[i]]
-        new_exclusion_windows[:, :, i] = resampled_exclusion_windows[:, :, shuffled_indices_of_resample[i]]
+        new_exclusion_windows[:, :, i] =
+            resampled_exclusion_windows[:, :, shuffled_indices_of_resample[i]]
     end
     surrogate_preprocessed_data.representation_joint[:, :] = new_representation_joint
     surrogate_preprocessed_data.exclusion_windows[:, :, :] = new_exclusion_windows
@@ -271,77 +277,92 @@ function make_AIS_surrogate(
     return surrogate_preprocessed_data
 end
 
-
 """
-    function preprocess_data(
-        target_events::Array{<:AbstractFloat},
-        source_events::Array{<:AbstractFloat},
-        l_x::Integer,
-        l_y::Integer;
-        auto_find_start_and_num_events::Bool = true,
-        start_event::Integer = 1,
-        num_target_events::Integer = length(target_events) - start_event,
-        num_samples_ratio::AbstractFloat = 1.0,
-        noise_level::AbstractFloat = 1e-8,
-        conditioning_events::Array{<:AbstractFloat} = [0.0],
-        l_z::Integer = 0,
-        is_surrogate::Bool = false,
-        surrogate_num_samples_ratio::AbstractFloat = 1.0,
-        k_perm::Integer = 5,
-        metric = Euclidean(),
+    function preprocess_event_times(
+        parameters::CoTETEParameters,
+        target_events::Array{<:AbstractFloat};
+        source_events::Array{<:AbstractFloat} = Float32[],
+        conditioning_events::Array{<:AbstractFloat} = Float32[]
     )
+
+Use the raw event times to create the history embeddings and other prerequisites for estimating the TE.
+
+```jldoctest
+julia> using CoTETE
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+
+julia> source = cumsum(ones(5)) .- 0.5; # source is {0.5, 1.5, 2.5, ...}
+
+julia> target = cumsum(ones(5)); # target is {1, 2, 3, ...}
+
+julia> preprocessed_data = CoTETE.preprocess_event_times(parameters, target, source_events = source);
+
+julia> println(preprocessed_data.representation_joint) # All target events will be one unit back, all source events 0.5 units
+[1.0 1.0 1.0 1.0; 0.5 0.5 0.5 0.5]
+
+```
 """
-function preprocess_data(
+function preprocess_event_times(
     parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat};
     source_events::Array{<:AbstractFloat} = Float32[],
-    conditioning_events::Array{<:AbstractFloat} = Float32[]
+    conditioning_events::Array{<:AbstractFloat} = Float32[],
 )
 
-
+    # We first need to figure out which target event will be the first and how many we will include
+    # in the analysis.
     if parameters.auto_find_start_and_num_events
-        # This will ensure that we have at least enough events to make the target embedding
-        start_event = parameters.l_x + 1
+        #=
+          When auto-finding we will use the first target event that has sufficient events preceding it
+          in all processes such that the history embeddings can be built.
+        =#
+        index_of_target_start_event = parameters.l_x + 1
         if parameters.l_y > 0
-            while source_events[parameters.l_y] > target_events[start_event]
-                start_event += 1
+            while source_events[parameters.l_y] > target_events[index_of_target_start_event]
+                index_of_target_start_event += 1
             end
         end
         if parameters.l_z > 0
-            while conditioning_events[parameters.l_z] > target_events[parameters.start_event]
-                start_event += 1
+            while conditioning_events[parameters.l_z] >
+                  target_events[parameters.index_of_target_start_event]
+                index_of_target_start_event += 1
             end
         end
-        num_target_events = length(target_events) - start_event
-        if parameters.num_target_events_cap > 0 && num_target_events > parameters.num_target_events_cap
+        num_target_events = length(target_events) - index_of_target_start_event
+        if parameters.num_target_events_cap > 0 &&
+           num_target_events > parameters.num_target_events_cap
             num_target_events = parameters.num_target_events_cap
         end
     else
+        # Use the user specified values
         num_target_events = parameters.num_target_events
-        start_event = parameters.start_event
+        index_of_target_start_event = parameters.start_event
     end
 
-    num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
+    start_timestamp = target_events[index_of_target_start_event]
+    end_timestamp = target_events[index_of_target_start_event+num_target_events]
 
     representation_joint, exclusion_windows = make_embeddings_along_observation_time_points(
         target_events,
-        start_event,
+        index_of_target_start_event,
         num_target_events,
         [target_events, conditioning_events, source_events],
         [parameters.l_x, parameters.l_z, parameters.l_y],
     )
 
-
+    num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
+    # place the sampel points uniform randomly between the start and the end.
     sample_points =
-        exclusion_windows[1, 2, 1] .+
-        (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .* rand(num_samples)
+        start_timestamp .+
+        ((end_timestamp - start_timestamp) * rand(num_samples))
     sort!(sample_points)
 
     sampled_representation_joint, sampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
             sample_points,
             1,
-            length(sample_points) - 2,
+            length(sample_points) - 2, #TODO Come back and look at this -2
             [target_events, conditioning_events, source_events],
             [parameters.l_x, parameters.l_z, parameters.l_y],
         )
@@ -385,7 +406,8 @@ function preprocess_data(
         exclusion_windows,
         sampled_representation_joint,
         sampled_exclusion_windows,
-        exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1],
+        start_timestamp,
+        end_timestamp,
     )
 
 end

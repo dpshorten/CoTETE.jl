@@ -5,15 +5,11 @@ CurrentModule = CoTETE
 ```
 
 ```@docs
-PreprocessedData
+calculate_TE_from_preprocessed_data
 ```
 
 ```@docs
-calculate_TE
-```
-
-```@docs
-preprocess_data
+preprocess_event_times
 ```
 
 ```@docs
@@ -22,4 +18,8 @@ make_embeddings_along_observation_time_points
 
 ```@docs
  make_one_embedding
+```
+
+```@docs
+PreprocessedData
 ```
