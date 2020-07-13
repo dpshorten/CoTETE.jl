@@ -41,7 +41,7 @@ The transformed data that is fed into the search trees.
 - `start_timestamp::AbstractFloat`: The raw timestamp of the first target event that is included in the analysis.
 - `end_timestamp::AbstractFloat`: The raw timestamp of the last target event that is included in the analysis.
 """
-struct PreprocessedData
+mutable struct PreprocessedData
     representation_joint::Array{<:AbstractFloat,2}
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
@@ -185,61 +185,76 @@ function make_embeddings_along_observation_time_points(
 
 end
 
-# """
-#     function make_surrogate(
-#         representation_joint::Array{<:AbstractFloat},
-#         exclusion_windows::Array{<:AbstractFloat},
-#         dense_sampled_representation_joint::Array{<:AbstractFloat},
-#         dense_sampled_exclusion_windows::Array{<:AbstractFloat},
-#         metric::Metric,
-#         l_x_plus_l_z::Integer,
-#         k_perm::Integer,
-#     )
-# """
-# function make_surrogate(
-#     preprocessed_data::PreprocessedData,
-#     dense_sampled_representation_joint::Array{<:AbstractFloat},
-#     dense_sampled_exclusion_windows::Array{<:AbstractFloat},
-#     metric::Metric,
-#     l_x_plus_l_z::Integer,
-#     k_perm::Integer,
-# )
-#
-#     added_exclusion_windows = zeros(size(exclusion_windows))
-#
-#     tree = NearestNeighbors.KDTree(
-#         dense_sampled_representation_joint[1:l_x_plus_l_z, :],
-#         metric,
-#         reorder = false,
-#     )
-#
-#     new_joint = copy(preprocessed_data.representation_joint)
-#     permutation = shuffle(collect(1:size(new_joint, 2)))
-#     used_indices = zeros(size(new_joint, 2))
-#     for i = 1:size(permutation, 1)
-#         neighbour_indices, neighbour_radii = NearestNeighbors.knn(
-#             tree,
-#             new_joint[1:l_x_plus_l_z, permutation[i]],
-#             preprocessed_data.exclusion_windows[:, :, permutation[i]],
-#             dense_sampled_exclusion_windows,
-#             k_perm,
-#         )
-#         eligible_indices = neighbour_indices[findall(!in(used_indices), neighbour_indices)]
-#         if length(eligible_indices) > 0
-#             index = eligible_indices[rand(1:end)]
-#         else
-#             index = neighbour_indices[rand(1:end)]
-#         end
-#         used_indices[i] = index
-#         new_joint[(l_x_plus_l_z+1):end, permutation[i]] =
-#             dense_sampled_representation_joint[(l_x_plus_l_z+1):end, index]
-#         added_exclusion_windows[1, :, permutation[i]] = dense_sampled_exclusion_windows[1, :, index]
-#     end
-#
-#     new_exclusion_windows = vcat(exclusion_windows, added_exclusion_windows)
-#
-#     return new_joint, new_exclusion_windows
-# end
+"""
+    function make_surrogate(
+        representation_joint::Array{<:AbstractFloat},
+        exclusion_windows::Array{<:AbstractFloat},
+        dense_sampled_representation_joint::Array{<:AbstractFloat},
+        dense_sampled_exclusion_windows::Array{<:AbstractFloat},
+        metric::Metric,
+        l_x_plus_l_z::Integer,
+        k_perm::Integer,
+    )
+"""
+function make_surrogate!(
+    parameters::CoTETEParameters,
+    preprocessed_data::PreprocessedData,
+    target_events::Array{<:AbstractFloat},
+    source_events::Array{<:AbstractFloat};
+    conditioning_events::Array{<:AbstractFloat} = Float32[],
+)
+
+    # Declare this to make the code slightly less verbose
+    l_x_plus_l_z = parameters.l_x + parameters.l_z
+
+    # Construct a new sampling of the distribution P_U
+    num_sample_points =
+        Int(round(parameters.surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2)))
+    sample_points =
+        preprocessed_data.start_timestamp .+
+        ((preprocessed_data.end_timestamp - preprocessed_data.start_timestamp) * rand(num_sample_points))
+    sort!(sample_points)
+    resampled_representation_joint, resampled_exclusion_windows =
+        make_embeddings_along_observation_time_points(
+            sample_points,
+            1,
+            length(sample_points) - 2, #TODO Come back and look at this -2
+            [target_events, conditioning_events, source_events],
+            [parameters.l_x, parameters.l_z, parameters.l_y],
+        )
+
+    tree = NearestNeighbors.KDTree(
+        resampled_representation_joint[1:l_x_plus_l_z, :],
+        parameters.metric,
+        reorder = false,
+    )
+
+    added_exclusion_windows = zeros(size(preprocessed_data.exclusion_windows))
+    permutation = shuffle(collect(1:size(preprocessed_data.representation_joint, 2)))
+    used_indices = zeros(size(preprocessed_data.representation_joint, 2))
+    for i = 1:length(permutation)
+        neighbour_indices, neighbour_radii = NearestNeighbors.knn(
+            tree,
+            preprocessed_data.representation_joint[1:l_x_plus_l_z, permutation[i]],
+            preprocessed_data.exclusion_windows[:, :, permutation[i]],
+            resampled_exclusion_windows,
+            parameters.k_perm,
+        )
+        # Find the neighbouring indices that have not already been used
+        eligible_indices = neighbour_indices[findall(!in(used_indices), neighbour_indices)]
+        if length(eligible_indices) > 0
+            index = eligible_indices[rand(1:end)]
+        else
+            index = neighbour_indices[rand(1:end)]
+        end
+        used_indices[i] = index
+        preprocessed_data.representation_joint[(l_x_plus_l_z+1):end, permutation[i]] =
+            resampled_representation_joint[(l_x_plus_l_z+1):end, index]
+        added_exclusion_windows[1, :, permutation[i]] = resampled_exclusion_windows[1, :, index]
+    end
+
+    preprocessed_data.exclusion_windows = vcat(preprocessed_data.exclusion_windows, added_exclusion_windows)
+end
 
 function make_AIS_surrogate(
     target_events::Array{<:AbstractFloat},
@@ -353,9 +368,7 @@ function preprocess_event_times(
 
     num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
     # place the sampel points uniform randomly between the start and the end.
-    sample_points =
-        start_timestamp .+
-        ((end_timestamp - start_timestamp) * rand(num_samples))
+    sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
     sort!(sample_points)
 
     sampled_representation_joint, sampled_exclusion_windows =
@@ -366,40 +379,6 @@ function preprocess_event_times(
             [target_events, conditioning_events, source_events],
             [parameters.l_x, parameters.l_z, parameters.l_y],
         )
-
-    # if is_surrogate
-    #     surrogate_num_samples = Int(round(surrogate_num_samples_ratio * num_target_events))
-    #     dense_sample_points =
-    #         exclusion_windows[1, 2, 1] .+
-    #         (exclusion_windows[1, 2, end] - exclusion_windows[1, 2, 1]) .*
-    #         rand(surrogate_num_samples)
-    #     sort!(dense_sample_points)
-    #     dense_sampled_representation_joint, dense_sampled_exclusion_windows =
-    #         make_embeddings_along_observation_time_points(
-    #             dense_sample_points,
-    #             1,
-    #             length(sample_points) - 2,
-    #             [target_events, conditioning_events, source_events],
-    #             [l_x, l_z, l_y],
-    #         )
-    #
-    #     representation_joint, exclusion_windows = make_surrogate(
-    #         representation_joint,
-    #         exclusion_windows,
-    #         dense_sampled_representation_joint,
-    #         dense_sampled_exclusion_windows,
-    #         metric,
-    #         l_x + l_z,
-    #         k_perm,
-    #     )
-    #
-    # end
-
-    #representation_joint += noise_level .* randn(size(representation_joint))
-    #sampled_representation_joint += noise_level .* randn(size(sampled_representation_joint))
-
-    #representation_conditionals = representation_joint[1:(l_x+l_z), :]
-    #sampled_representation_conditionals = sampled_representation_joint[1:(l_x+l_z), :]
 
     return PreprocessedData(
         representation_joint,

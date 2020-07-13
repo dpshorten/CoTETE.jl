@@ -85,7 +85,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     kraskov_noise_level::AbstractFloat = 1e-8
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
-    k_perm::Integer = 5
+    k_perm::Integer = 10
 end
 
 include("preprocessing.jl")
@@ -241,6 +241,52 @@ function calculate_TE_from_event_times(
 
 end
 
+function calculate_TE_and_p_value_from_event_times(
+    parameters::CoTETEParameters,
+    target_events::Array{<:AbstractFloat},
+    source_events::Array{<:AbstractFloat};
+    conditioning_events::Array{<:AbstractFloat} = Float32[],
+    return_surrogate_TE_values::Bool = false,
+)
+
+    preprocessed_data = CoTETE.preprocess_event_times(
+        parameters,
+        target_events,
+        source_events = source_events,
+        conditioning_events = conditioning_events,
+    )
+
+    TE = CoTETE.calculate_TE_from_preprocessed_data(parameters, preprocessed_data)
+
+    surrogate_TE_values = zeros(parameters.num_surrogates)
+    for i = 1:parameters.num_surrogates
+        surrogate_preprocessed_data = deepcopy(preprocessed_data)
+        CoTETE.make_surrogate!(
+            parameters,
+            surrogate_preprocessed_data,
+            target_events,
+            source_events,
+            conditioning_events = conditioning_events,
+        )
+        surrogate_TE_values[i] =
+            CoTETE.calculate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data)
+    end
+
+    p = 0
+    for surrogate_val in surrogate_TE_values
+        if surrogate_val >= TE
+            p += 1
+        end
+    end
+
+    if return_surrogate_TE_values
+        return TE, p, surrogate_TE_values
+    else
+        return TE, p
+    end
+
+end
+
 function calculate_AIS_and_surrogates(
     target_events::Array{<:AbstractFloat},
     l_x::Integer;
@@ -372,6 +418,7 @@ function calculate_TE_from_preprocessed_data(
     )
 
     TE = 0
+    # Iterate over each event in the target process
     for i = 1:size(preprocessed_data.representation_joint, 2)
         indices_conditionals_from_knn_search, radii_conditionals_from_knn_search =
             NearestNeighbors.knn(
@@ -482,17 +529,22 @@ function calculate_TE_from_preprocessed_data(
             radius_sampled_joint_inside_first_radius = maximum(colwise(
                 parameters.metric,
                 preprocessed_data.representation_joint[:, i],
-                preprocessed_data.sampled_representation_joint[:, indices_sampled_joint_from_radius_search],
+                preprocessed_data.sampled_representation_joint[
+                    :,
+                    indices_sampled_joint_from_radius_search,
+                ],
             ))
 
             TE += (
                 -(l_x_plus_l_z + l_y)log(radius_joint_inside_first_radius) +
                 (l_x_plus_l_z + l_y)log(radius_sampled_joint_inside_first_radius) +
-                digamma(size(indices_joint_from_radius_search)[1]) - digamma(size(indices_sampled_joint_from_radius_search)[1])
+                digamma(size(indices_joint_from_radius_search)[1]) -
+                digamma(size(indices_sampled_joint_from_radius_search)[1])
             )
         end
     end
 
+    # AIS correction as the log(N_X) and log(N_U) terms no longer cancel.
     if parameters.AIS_only
         TE +=
             size(preprocessed_data.representation_joint, 2) * (
