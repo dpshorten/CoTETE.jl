@@ -2,7 +2,7 @@
 
 using Documenter, CoTETE, Test
 
-DocMeta.setdocmeta!(CoTETE, :DocTestSetup, :(using CoTETE); recursive=true)
+DocMeta.setdocmeta!(CoTETE, :DocTestSetup, :(using CoTETE; using Random: randn); recursive=true)
 
 doctest(CoTETE)
 

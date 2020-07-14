@@ -363,7 +363,7 @@ See [this thesis](https://doi.org/10.1007/978-3-642-32952-4) for a description o
 # Examples
 
 This example estimates the AIS on an homogeneous Poisson process. The true value of the
-AIS on such a process is zero. 
+AIS on such a process is zero.
 
 ```jldoctest; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> target = sort(1e4*rand(Int(1e4)));
@@ -391,66 +391,82 @@ function estimate_AIS_from_event_times(
 
 end
 
-function estimate_AIS_and_surrogates(
-    target_events::Array{<:AbstractFloat},
-    l_x::Integer;
-    auto_find_start_and_num_events::Bool = true,
-    num_target_events_cap::Integer = -1,
-    start_event::Integer = 1,
-    num_target_events::Integer = length(target_events) - start_event,
-    num_samples_ratio::AbstractFloat = 1.0,
-    k_global::Integer = 5,
-    metric::Metric = Euclidean(),
-    kraskov_noise_level::AbstractFloat = 1e-8,
-    num_surrogates::Integer = 100,
-    surrogate_num_samples_ratio::AbstractFloat = 1.0,
-)
-    preprocessed_data = CoTETE.preprocess_event_times(
-        target_events,
-        Float64[],
-        l_x,
-        0,
-        auto_find_start_and_num_events = auto_find_start_and_num_events,
-        num_target_events_cap = num_target_events_cap,
-        num_target_events = num_target_events,
-        num_samples_ratio = num_samples_ratio,
-        start_event = start_event,
-        surrogate_num_samples_ratio = surrogate_num_samples_ratio,
+"""
+    estimate_AIS_and_p_value_from_event_times(
+      parameters::CoTETEParameters,
+      target_events::Array{<:AbstractFloat},
+      source_events::Array{<:AbstractFloat};
+      conditioning_events::Array{<:AbstractFloat} = Float32[],
     )
 
-    TE =
-        -estimate_TE_from_preprocessed_data(
-            preprocessed_data,
-            k_global = k_global,
-            metric = metric,
-            AIS_only = true,
-        )
+Estimate the Active Information Storage (AIS) along with the ``p`` value of the AIS being different
+from 0 from lists of raw event times.
 
-    surrogates = zeros(num_surrogates)
-    for i = 1:num_surrogates
-        surrogate_preprocessed_data = CoTETE.make_AIS_surrogate(
-            target_events,
-            preprocessed_data,
-            Integer(round(
-                surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2),
-            )),
-        )
-        surrogates[i] =
-            -estimate_TE_from_preprocessed_data(
-                surrogate_preprocessed_data,
-                k_global = k_global,
-                metric = metric,
-                AIS_only = true,
-            )
-    end
+See [this thesis](https://doi.org/10.1007/978-3-642-32952-4) for a description of AIS.
+
+# Examples
+
+This example estimates the AIS and ``p`` value on an homogeneous Poisson process. The true value of the
+AIS on such a process is zero. We expect the ``p`` value to be uniformly distributed between zero and 1.
+
+```jldoctest;  filter = r"\\(.*\\)"
+julia> target = sort(1e3*rand(Int(1e3)));
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1);
+
+julia> AIS, p = CoTETE.estimate_AIS_and_p_value_from_event_times(parameters, target)
+(0.0, 0.5)
+
+julia> p > 0.05 # For Doctesting purposes. Should fail from time to time
+true
+
+```
+
+```jldoctest;  filter = r"\\(.*\\)"
+julia> target = sort(cumsum(ones(Int(1e3))) .+ 1e-2*randn(Int(1e3)));
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1);
+
+julia> AIS, p = CoTETE.estimate_AIS_and_p_value_from_event_times(parameters, target)
+(1.0, 0.01)
+
+julia> p < 0.05 # For Doctesting purposes. Should fail from time to time
+true
+
+```
+"""
+function estimate_AIS_and_p_value_from_event_times(
+    parameters::CoTETEParameters,
+    target_events::Array{<:AbstractFloat},
+    return_surrogate_AIS_values::Bool = false,
+)
+
+    preprocessed_data = CoTETE.preprocess_event_times(parameters, target_events)
+
+    AIS = -CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data, AIS_only = true)
+
+    surrogate_AIS_values = zeros(parameters.num_surrogates)
+    # for i = 1:parameters.num_surrogates
+    #     surrogate_preprocessed_data = deepcopy(preprocessed_data)
+    #     CoTETE.make_AIS_surrogate!(parameters, surrogate_preprocessed_data, target_events)
+    #     surrogate_AIS_values[i] =
+    #         -CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data, AIS_only = true)
+    # end
+
     p = 0
-    for surrogate in surrogates
-        if surrogate >= TE
+    for surrogate_val in surrogate_AIS_values
+        if surrogate_val >= AIS
             p += 1
         end
     end
-    #println(TE, " ", mean(surrogates), " ", std(surrogates))
-    return TE, surrogates, p
+    p /= parameters.num_surrogates
+
+    if return_surrogate_AIS_values
+        return AIS, p, surrogate_AIS_values
+    else
+        return AIS, p
+    end
+
 end
 
 """
@@ -519,7 +535,7 @@ function estimate_TE_from_preprocessed_data(
         reorder = false,
     )
 
-    TE = 0
+    TE = 0.0
     # Iterate over each event in the target process
     for i = 1:size(preprocessed_data.representation_joint, 2)
         #=
@@ -583,7 +599,7 @@ function estimate_TE_from_preprocessed_data(
             digamma(size(indices_conditionals_from_radius_search)[1]) +
             digamma(size(indices_sampled_conditionals_from_radius_search)[1])
         )
-
+        println("TEfoo ", TE)
         if !parameters.AIS_only
             #=
               We now estimate the contribution from the first
@@ -652,15 +668,17 @@ function estimate_TE_from_preprocessed_data(
         end
     end
 
+    println("TE1 ", TE)
     # AIS correction as the log(N_X) and log(N_U) terms no longer cancel.
-    if parameters.AIS_only
-        TE +=
-            size(preprocessed_data.representation_joint, 2) * (
-                log(size(representation_conditionals, 2) - 1) -
-                log(size(sampled_representation_conditionals, 2))
-            )
-    end
+    # if parameters.AIS_only
+    #     TE +=
+    #         size(preprocessed_data.representation_joint, 2) * (
+    #             log(size(representation_conditionals, 2) - 1) -
+    #             log(size(sampled_representation_conditionals, 2))
+    #         )
+    # end
 
+    println(TE)
     return (TE / (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp))
 
 end

@@ -205,11 +205,14 @@ function make_surrogate!(
     l_x_plus_l_z = parameters.l_x + parameters.l_z
 
     # Construct a new sampling of the distribution P_U
-    num_sample_points =
-        Int(round(parameters.surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2)))
+    num_sample_points = Int(round(
+        parameters.surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2),
+    ))
     sample_points =
-        preprocessed_data.start_timestamp .+
-        ((preprocessed_data.end_timestamp - preprocessed_data.start_timestamp) * rand(num_sample_points))
+        preprocessed_data.start_timestamp .+ (
+            (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp) *
+            rand(num_sample_points)
+        )
     sort!(sample_points)
     resampled_representation_joint, resampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
@@ -250,43 +253,43 @@ function make_surrogate!(
         added_exclusion_windows[1, :, permutation[i]] = resampled_exclusion_windows[1, :, index]
     end
 
-    preprocessed_data.exclusion_windows = vcat(preprocessed_data.exclusion_windows, added_exclusion_windows)
+    preprocessed_data.exclusion_windows =
+        vcat(preprocessed_data.exclusion_windows, added_exclusion_windows)
 end
 
-function make_AIS_surrogate(
-    target_events::Array{<:AbstractFloat},
+function make_AIS_surrogate!(
+    parameters::CoTETEParameters,
     preprocessed_data::PreprocessedData,
-    N_U::Integer,
+    target_events::Array{<:AbstractFloat},
 )
-    surrogate_preprocessed_data = deepcopy(preprocessed_data)
-    sample_points =
-        preprocessed_data.exclusion_windows[1, 2, 1] .+
-        (
-            preprocessed_data.exclusion_windows[1, 2, end] -
-            preprocessed_data.exclusion_windows[1, 2, 1]
-        ) .* rand(N_U + 2)
-    sort!(sample_points)
+    num_resample_points = Int(round(
+        parameters.surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2),
+    ))
+    resample_points =
+        preprocessed_data.start_timestamp .+ (
+            (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp) *
+            rand(num_resample_points + 2)
+        )
+    sort!(resample_points)
     resampled_representation_joint, resampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
-            sample_points,
+            resample_points,
             1,
-            length(sample_points) - 2,
+            length(resample_points) - 2,
             [target_events, Float64[], Float64[]],
-            [preprocessed_data.l_x, 0, 0],
+            [parameters.l_x, 0, 0],
         )
     shuffled_indices_of_resample = shuffle(collect(1:size(resampled_representation_joint, 2)))
-    new_exclusion_windows = zeros(size(surrogate_preprocessed_data.exclusion_windows))
-    new_representation_joint = zeros(size(surrogate_preprocessed_data.representation_joint))
-    for i = 1:size(surrogate_preprocessed_data.representation_joint, 2)
+    new_exclusion_windows = zeros(size(preprocessed_data.exclusion_windows))
+    new_representation_joint = zeros(size(preprocessed_data.representation_joint))
+    for i = 1:size(preprocessed_data.representation_joint, 2)
         new_representation_joint[:, i] =
             resampled_representation_joint[:, shuffled_indices_of_resample[i]]
         new_exclusion_windows[:, :, i] =
             resampled_exclusion_windows[:, :, shuffled_indices_of_resample[i]]
     end
-    surrogate_preprocessed_data.representation_joint[:, :] = new_representation_joint
-    surrogate_preprocessed_data.exclusion_windows[:, :, :] = new_exclusion_windows
-
-    return surrogate_preprocessed_data
+    preprocessed_data.representation_joint[:, :] = new_representation_joint
+    preprocessed_data.exclusion_windows[:, :, :] = new_exclusion_windows
 end
 
 """
