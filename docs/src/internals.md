@@ -13,6 +13,10 @@ make_surrogate!
 ```
 
 ```@docs
+make_AIS_surrogate!
+```
+
+```@docs
 preprocess_event_times
 ```
 

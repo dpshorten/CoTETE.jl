@@ -81,7 +81,6 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     num_samples_ratio::AbstractFloat = 1.0
     k_global::Integer = 5
     metric::Metric = Euclidean()
-    AIS_only::Bool = false
     kraskov_noise_level::AbstractFloat = 1e-8
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
@@ -446,12 +445,12 @@ function estimate_AIS_and_p_value_from_event_times(
     AIS = -CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data, AIS_only = true)
 
     surrogate_AIS_values = zeros(parameters.num_surrogates)
-    # for i = 1:parameters.num_surrogates
-    #     surrogate_preprocessed_data = deepcopy(preprocessed_data)
-    #     CoTETE.make_AIS_surrogate!(parameters, surrogate_preprocessed_data, target_events)
-    #     surrogate_AIS_values[i] =
-    #         -CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data, AIS_only = true)
-    # end
+    for i = 1:parameters.num_surrogates
+        surrogate_preprocessed_data = deepcopy(preprocessed_data)
+        CoTETE.make_AIS_surrogate!(parameters, surrogate_preprocessed_data, target_events)
+        surrogate_AIS_values[i] =
+            -CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data, AIS_only = true)
+    end
 
     p = 0
     for surrogate_val in surrogate_AIS_values
@@ -599,8 +598,8 @@ function estimate_TE_from_preprocessed_data(
             digamma(size(indices_conditionals_from_radius_search)[1]) +
             digamma(size(indices_sampled_conditionals_from_radius_search)[1])
         )
-        println("TEfoo ", TE)
-        if !parameters.AIS_only
+
+        if !AIS_only
             #=
               We now estimate the contribution from the first
               KL divergence term in equation 9 of doi.org/10.1101/2020.06.16.154377.
@@ -668,17 +667,15 @@ function estimate_TE_from_preprocessed_data(
         end
     end
 
-    println("TE1 ", TE)
-    # AIS correction as the log(N_X) and log(N_U) terms no longer cancel.
-    # if parameters.AIS_only
-    #     TE +=
-    #         size(preprocessed_data.representation_joint, 2) * (
-    #             log(size(representation_conditionals, 2) - 1) -
-    #             log(size(sampled_representation_conditionals, 2))
-    #         )
-    # end
+    #AIS correction as the log(N_X) and log(N_U) terms no longer cancel.
+    if AIS_only
+        TE +=
+            size(preprocessed_data.representation_joint, 2) * (
+                log(size(representation_conditionals, 2) - 1) -
+                log(size(sampled_representation_conditionals, 2))
+            )
+    end
 
-    println(TE)
     return (TE / (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp))
 
 end

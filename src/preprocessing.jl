@@ -257,6 +257,16 @@ function make_surrogate!(
         vcat(preprocessed_data.exclusion_windows, added_exclusion_windows)
 end
 
+"""
+    function make_AIS_surrogate!(
+        parameters::CoTETEParameters,
+        preprocessed_data::PreprocessedData,
+        target_events::Array{<:AbstractFloat},
+    )
+
+Edit `preprocessed_data.representation_joint` such that it conforms to the
+null hypothesis of the target histories being independent of events in the target process.
+"""
 function make_AIS_surrogate!(
     parameters::CoTETEParameters,
     preprocessed_data::PreprocessedData,
@@ -280,16 +290,12 @@ function make_AIS_surrogate!(
             [parameters.l_x, 0, 0],
         )
     shuffled_indices_of_resample = shuffle(collect(1:size(resampled_representation_joint, 2)))
-    new_exclusion_windows = zeros(size(preprocessed_data.exclusion_windows))
-    new_representation_joint = zeros(size(preprocessed_data.representation_joint))
     for i = 1:size(preprocessed_data.representation_joint, 2)
-        new_representation_joint[:, i] =
+        preprocessed_data.representation_joint[:, i] =
             resampled_representation_joint[:, shuffled_indices_of_resample[i]]
-        new_exclusion_windows[:, :, i] =
+        preprocessed_data.exclusion_windows[:, :, i] =
             resampled_exclusion_windows[:, :, shuffled_indices_of_resample[i]]
     end
-    preprocessed_data.representation_joint[:, :] = new_representation_joint
-    preprocessed_data.exclusion_windows[:, :, :] = new_exclusion_windows
 end
 
 """
