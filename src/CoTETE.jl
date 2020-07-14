@@ -1,6 +1,6 @@
 module CoTETE
 
-export calculate_TE_from_event_times
+export estimate_TE_from_event_times
 
 using Parameters
 using Distances: evaluate, colwise, Metric, Chebyshev, Euclidean
@@ -92,7 +92,7 @@ include("preprocessing.jl")
 
 
 """
-    calculate_TE_from_event_times(
+    estimate_TE_from_event_times(
       parameters::CoTETEParameters,
       target_events::Array{<:AbstractFloat},
       source_events::Array{<:AbstractFloat};
@@ -114,16 +114,14 @@ is covered in section II A of [our paper](https://doi.org/10.1101/2020.06.16.154
 We first create the source and target processes, each with 10 000 events and with rate 1, before
 running the estimator.
 
-```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+```jldoctest estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> source = sort(1e4*rand(Int(1e4)));
 
 julia> target = sort(1e4*rand(Int(1e4)));
 
-julia> using CoTETE
-
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
 
-julia> TE = CoTETE.calculate_TE_from_event_times(parameters, target, source)
+julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.0
 
 julia> abs(TE - 0) < 0.05 # For Doctesting purposes
@@ -131,10 +129,10 @@ true
 
 ```
 We can also try increasing the length of the target and source history embeddings
-```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+```jldoctest estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> parameters = CoTETE.CoTETEParameters(l_x = 3, l_y = 3);
 
-julia> TE = CoTETE.calculate_TE_from_event_times(parameters, target, source)
+julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.0
 
 julia> abs(TE - 0) < 0.1 # For Doctesting purposes
@@ -143,7 +141,7 @@ true
 ```
 
 Let's try some other options
-```jldoctest calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+```jldoctest estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> using Distances: Cityblock
 
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1,
@@ -155,7 +153,7 @@ julia> parameters = CoTETE.CoTETEParameters(l_x = 1,
                                             num_samples_ratio = 2.3,
                                             metric = Cityblock());
 
-julia> TE = CoTETE.calculate_TE_from_event_times(parameters, target, source)
+julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.0
 
 julia> abs(TE - 0) < 0.1 # For Doctesting purposes
@@ -170,7 +168,7 @@ We create the source process as before. Howevever, the target process is
 originally created as an homogeneous Poisson process with rate 10, before a thinning algorithm
 is applied to it, in order to provide the dependence on the source.
 
-```julia calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+```julia estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> source = sort(1e4*rand(Int(1e4)));
 
 julia> target = sort(1e4*rand(Int(1e5)));
@@ -202,7 +200,7 @@ julia> target = thin_target(source, target, 10);
 
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
 
-julia> TE = CoTETE.calculate_TE_from_event_times(parameters, target, source)
+julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.5076
 
 julia> abs(TE - 0.5076) < 0.05 # For Doctesting purposes
@@ -211,17 +209,17 @@ true
 
 We can also try extending the length of the target embeddings in order to better resolve this
 dependency
-```julia calculate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+```julia estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> parameters = CoTETE.CoTETEParameters(l_x = 3, l_y = 1);
 
-julia> TE = CoTETE.calculate_TE_from_event_times(target, source, 3, 1)
+julia> TE = CoTETE.estimate_TE_from_event_times(target, source, 3, 1)
 0.5076
 
 julia> abs(TE - 0.5076) < 0.05 # For Doctesting purposes
 true
 ```
 """
-function calculate_TE_from_event_times(
+function estimate_TE_from_event_times(
     parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat};
@@ -235,13 +233,75 @@ function calculate_TE_from_event_times(
         conditioning_events = conditioning_events,
     )
 
-    TE = CoTETE.calculate_TE_from_preprocessed_data(parameters, preprocessed_data)
+    TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data)
 
     return TE
 
 end
 
-function calculate_TE_and_p_value_from_event_times(
+"""
+    function estimate_TE_and_p_value_from_event_times(
+        parameters::CoTETEParameters,
+        target_events::Array{<:AbstractFloat},
+        source_events::Array{<:AbstractFloat};
+        conditioning_events::Array{<:AbstractFloat} = Float32[],
+        return_surrogate_TE_values::Bool = false,
+    )
+
+calculate the TE and the ``p`` value of it being statistically different from zero.
+
+This example demonstrates estimating the TE and ``p`` value between uncoupled homogeneous Poisson processes.
+As the true value of the TE is zero, we expect the ``p`` value to be uniformly disributed between zero and one.
+
+We first create the source and target processes, each with 1 000 events and with rate 1, before
+running the estimator and the surrogate generation procedure.
+
+# Examples
+
+```jldoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
+julia> source = sort(1e3*rand(Int(1e3)));
+
+julia> target = sort(1e3*rand(Int(1e3)));
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+
+julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
+(0.0, 0.5)
+
+julia> p > 0.05 # For Doctesting purposes. Should fail every now and then.
+true
+
+```
+
+This second example shows using this method on coupled processes for which the true value of the
+TE is nonzero. As there is a strong coupling between the source and target, we expect the
+``p`` value to be close to 0.
+The application of the estimator to this example is covered in
+section II B of [our paper](https://doi.org/10.1101/2020.06.16.154377). See the above examples for
+`estimate_TE_from_event_times` for more details as well as the implementation of the thinning algorithm.
+
+We create the source process as before. Howevever, the target process is
+originally created as an homogeneous Poisson process with rate 10, before the thinning algorithm
+is applied to it, in order to provide the dependence on the source.
+
+```julia estimate_TE_from_event_times; filter = r"\\(.*\\)"
+julia> source = sort(1e3*rand(Int(1e3)));
+
+julia> target = sort(1e3*rand(Int(1e4)));
+
+julia> target = thin_target(source, target, 10);
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+
+julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
+(0.5, 0.01)
+
+julia> p < 0.05 # For Doctesting purposes. Should fail very rarely.
+true
+```
+
+"""
+function estimate_TE_and_p_value_from_event_times(
     parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat};
@@ -256,7 +316,7 @@ function calculate_TE_and_p_value_from_event_times(
         conditioning_events = conditioning_events,
     )
 
-    TE = CoTETE.calculate_TE_from_preprocessed_data(parameters, preprocessed_data)
+    TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data)
 
     surrogate_TE_values = zeros(parameters.num_surrogates)
     for i = 1:parameters.num_surrogates
@@ -269,7 +329,7 @@ function calculate_TE_and_p_value_from_event_times(
             conditioning_events = conditioning_events,
         )
         surrogate_TE_values[i] =
-            CoTETE.calculate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data)
+            CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data)
     end
 
     p = 0
@@ -278,6 +338,7 @@ function calculate_TE_and_p_value_from_event_times(
             p += 1
         end
     end
+    p /= parameters.num_surrogates
 
     if return_surrogate_TE_values
         return TE, p, surrogate_TE_values
@@ -287,7 +348,50 @@ function calculate_TE_and_p_value_from_event_times(
 
 end
 
-function calculate_AIS_and_surrogates(
+"""
+    estimate_AIS_from_event_times(
+      parameters::CoTETEParameters,
+      target_events::Array{<:AbstractFloat},
+      source_events::Array{<:AbstractFloat};
+      conditioning_events::Array{<:AbstractFloat} = Float32[],
+    )
+
+Estimate the Active Information Storage (AIS) from lists of raw event times.
+
+See [this thesis](https://doi.org/10.1007/978-3-642-32952-4) for a description of AIS.
+
+# Examples
+
+This example estimates the AIS on an homogeneous Poisson process. The true value of the
+AIS on such a process is zero. 
+
+```jldoctest; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+julia> target = sort(1e4*rand(Int(1e4)));
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1);
+
+julia> AIS = CoTETE.estimate_AIS_from_event_times(parameters, target)
+0.0
+
+julia> abs(AIS - 0) < 0.05 # For Doctesting purposes
+true
+
+```
+"""
+function estimate_AIS_from_event_times(
+    parameters::CoTETEParameters,
+    target_events::Array{<:AbstractFloat},
+)
+
+    preprocessed_data = CoTETE.preprocess_event_times(parameters, target_events)
+
+    AIS = -CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data, AIS_only = true)
+
+    return AIS
+
+end
+
+function estimate_AIS_and_surrogates(
     target_events::Array{<:AbstractFloat},
     l_x::Integer;
     auto_find_start_and_num_events::Bool = true,
@@ -315,7 +419,7 @@ function calculate_AIS_and_surrogates(
     )
 
     TE =
-        -calculate_TE_from_preprocessed_data(
+        -estimate_TE_from_preprocessed_data(
             preprocessed_data,
             k_global = k_global,
             metric = metric,
@@ -332,7 +436,7 @@ function calculate_AIS_and_surrogates(
             )),
         )
         surrogates[i] =
-            -calculate_TE_from_preprocessed_data(
+            -estimate_TE_from_preprocessed_data(
                 surrogate_preprocessed_data,
                 k_global = k_global,
                 metric = metric,
@@ -350,22 +454,20 @@ function calculate_AIS_and_surrogates(
 end
 
 """
-    calculate_TE_from_preprocessed_data(parameters::CoTETEParameters, preprocessed_data::PreprocessedData)
+    estimate_TE_from_preprocessed_data(parameters::CoTETEParameters, preprocessed_data::PreprocessedData)
 
 calculates the TE using the preprocessed data and the given parameters.
 
-```jldoctest calculate_TE_from_preprocessed_data; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+```jldoctest estimate_TE_from_preprocessed_data; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> source = sort(1e4*rand(Int(1e4)));
 
 julia> target = sort(1e4*rand(Int(1e4)));
-
-julia> using CoTETE
 
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
 
 julia> preprocessed_data = CoTETE.preprocess_event_times(parameters, target, source_events = source);
 
-julia> TE = CoTETE.calculate_TE_from_preprocessed_data(parameters, preprocessed_data)
+julia> TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data)
 0.0
 
 julia> abs(TE - 0) < 0.05 # For Doctesting purposes
@@ -373,9 +475,9 @@ true
 
 ```
 """
-function calculate_TE_from_preprocessed_data(
+function estimate_TE_from_preprocessed_data(
     parameters::CoTETEParameters,
-    preprocessed_data::PreprocessedData,
+    preprocessed_data::PreprocessedData;
     AIS_only::Bool = false,
 )
 
@@ -420,6 +522,10 @@ function calculate_TE_from_preprocessed_data(
     TE = 0
     # Iterate over each event in the target process
     for i = 1:size(preprocessed_data.representation_joint, 2)
+        #=
+          We first estimate the contribution from the AIS. This corresponeds to the second
+          KL divergence term in equation 9 of doi.org/10.1101/2020.06.16.154377.
+        =#
         indices_conditionals_from_knn_search, radii_conditionals_from_knn_search =
             NearestNeighbors.knn(
                 tree_conditionals,
@@ -438,11 +544,10 @@ function calculate_TE_from_preprocessed_data(
                 parameters.k_global,
             )
 
-        maximum_radius_conditionals_from_both_knn_searches =
-            max(
-                maximum(radii_conditionals_from_knn_search),
-                maximum(radii_sampled_conditionals_from_knn_search),
-            ) + 1e-6 #TODO make this more well-grounded
+        maximum_radius_conditionals_from_both_knn_searches = max(
+            maximum(radii_conditionals_from_knn_search),
+            maximum(radii_sampled_conditionals_from_knn_search),
+        )
 
         indices_conditionals_from_radius_search = NearestNeighbors.inrange(
             tree_conditionals,
@@ -480,6 +585,10 @@ function calculate_TE_from_preprocessed_data(
         )
 
         if !parameters.AIS_only
+            #=
+              We now estimate the contribution from the first
+              KL divergence term in equation 9 of doi.org/10.1101/2020.06.16.154377.
+            =#
             indices_joint_from_knn_search, radii_joint_from_knn_search = NearestNeighbors.knn(
                 tree_joint,
                 preprocessed_data.representation_joint[:, i],
@@ -497,11 +606,10 @@ function calculate_TE_from_preprocessed_data(
                     parameters.k_global,
                 )
 
-            maximum_radius_joint_from_both_knn_searches =
-                max(
-                    maximum(radii_joint_from_knn_search),
-                    maximum(radii_sampled_joint_from_knn_search),
-                ) + 1e-6
+            maximum_radius_joint_from_both_knn_searches = max(
+                maximum(radii_joint_from_knn_search),
+                maximum(radii_sampled_joint_from_knn_search),
+            )
 
             indices_joint_from_radius_search = NearestNeighbors.inrange(
                 tree_joint,

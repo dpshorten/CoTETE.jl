@@ -70,8 +70,6 @@ julia> conditional = cumsum(ones(20)) .- 0.25; # conditional is {0.75, 1.75, 2.7
 
 julia> target = cumsum(ones(20)); # target is {1, 2, 3, ...}
 
-julia> using CoTETE
-
 julia> CoTETE.make_one_embedding(5.25, [target, source, conditional], [5, 5, 5], [2, 3, 1])
 (Any[0.25, 1.0, 0.75, 1.0, 1.0, 0.5], 2.5)
 ```
@@ -134,8 +132,6 @@ julia> target = cumsum(ones(20)); # target is {1, 2, 3, ...}
 
 julia> observation_points = cumsum(ones(20)) .- 0.75; # observation points are {0.25, 1.25, 2.25, ...}
 
-julia> using CoTETE
-
 julia> CoTETE.make_embeddings_along_observation_time_points(observation_points, 5, 2, [target, source, conditional], [2, 1, 1])
 ([0.25 0.25 0.25; 1.0 1.0 1.0; 0.75 0.75 0.75; 0.5 0.5 0.5], [3.0 4.25]
 
@@ -186,15 +182,16 @@ function make_embeddings_along_observation_time_points(
 end
 
 """
-    function make_surrogate(
-        representation_joint::Array{<:AbstractFloat},
-        exclusion_windows::Array{<:AbstractFloat},
-        dense_sampled_representation_joint::Array{<:AbstractFloat},
-        dense_sampled_exclusion_windows::Array{<:AbstractFloat},
-        metric::Metric,
-        l_x_plus_l_z::Integer,
-        k_perm::Integer,
+    function make_surrogate!(
+        parameters::CoTETEParameters,
+        preprocessed_data::PreprocessedData,
+        target_events::Array{<:AbstractFloat},
+        source_events::Array{<:AbstractFloat};
+        conditioning_events::Array{<:AbstractFloat} = Float32[],
     )
+
+Edit the source component of `preprocessed_data.representation_joint` such that it conforms to the
+null hypothesis of conditional independence.
 """
 function make_surrogate!(
     parameters::CoTETEParameters,
@@ -303,8 +300,6 @@ end
 Use the raw event times to create the history embeddings and other prerequisites for estimating the TE.
 
 ```jldoctest
-julia> using CoTETE
-
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
 
 julia> source = cumsum(ones(5)) .- 0.5; # source is {0.5, 1.5, 2.5, ...}

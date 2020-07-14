@@ -48,7 +48,7 @@ We can now estimate the TE between these processes, with history embeddings of l
 
 ```julia
 julia> import CoTETE
-julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
+julia> CoTETE.estimate_TE_from_event_times(target, source, 1, 1)
 ```
 
 The answer should be close to 0.

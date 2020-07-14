@@ -2,6 +2,8 @@
 
 using Documenter, CoTETE, Test
 
+DocMeta.setdocmeta!(CoTETE, :DocTestSetup, :(using CoTETE); recursive=true)
+
 doctest(CoTETE)
 
 makedocs(

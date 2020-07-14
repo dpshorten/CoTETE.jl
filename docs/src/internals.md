@@ -5,7 +5,11 @@ CurrentModule = CoTETE
 ```
 
 ```@docs
-calculate_TE_from_preprocessed_data
+estimate_TE_from_preprocessed_data
+```
+
+```@docs
+make_surrogate!
 ```
 
 ```@docs
