@@ -10,7 +10,7 @@ infer functional networks of statistical associations. Under certain assumptions
 [can also be used](https://doi.org/10.1063/1.5025050) to estimate underlying causal networks
 from observational data.
 
-This package allows one to estimate the Transfer Entropy (TE) between event-based time series
+This package allows one to estimate the TE between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
 time into bins). The advantages of this approach over the discrete-time approach include:
 * The continuous-time approach is **provably consistent** - it is guaranteed to converge to the true

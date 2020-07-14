@@ -420,7 +420,8 @@ julia> p > 0.05 # For Doctesting purposes. Should fail from time to time
 true
 
 ```
-
+This next example estimates the AIS for a process where we know that the AIS must be nonzero. This process has an event
+occurring every one time unit, with a bit of noise added to the event times.
 ```jldoctest;  filter = r"\\(.*\\)"
 julia> target = sort(cumsum(ones(Int(1e3))) .+ 1e-2*randn(Int(1e3)));
 
