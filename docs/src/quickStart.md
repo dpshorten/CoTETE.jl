@@ -9,7 +9,7 @@ package gets included).
 david@home:~$ git clone --recurse-submodules https://github.com/dpshorten/CoTETE.jl.git
 ```
 
-make sure that CoTETE.jl/src/ is on your JULIA_LOAD_PATH. eg:
+make sure that CoTETE.jl/src/ is on your JULIA\_LOAD\_PATH. eg:
 
 ```console
 david@home:~$ export JULIA_LOAD_PATH=:/home/david/CoTETE.jl/src/
@@ -21,6 +21,11 @@ Fire up the Julia REPL
 david@home:~$ julia
 ```
 You will need to add three prerequisite packages.
+
+!!! tip "Tip for new Julia users"
+    The Julia REPL has a nifty feature called *prompt pasting*, which means that it
+    will automatically remove the `julia>` prompt when you paste. You can, therefore, just copy and paste the entire block
+    below without worrying about these prompts.
 
 ```julia
 julia> import Pkg
@@ -43,7 +48,7 @@ We can now estimate the TE between these processes, with history embeddings of l
 
 ```julia
 julia> import CoTETE
-julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
+julia> CoTETE.estimate_TE_from_event_times(target, source, 1, 1)
 ```
 
 The answer should be close to 0.

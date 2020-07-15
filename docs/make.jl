@@ -2,7 +2,9 @@
 
 using Documenter, CoTETE, Test
 
-#doctest(CoTETE)
+DocMeta.setdocmeta!(CoTETE, :DocTestSetup, :(using CoTETE; using Random: randn); recursive=true)
+
+doctest(CoTETE)
 
 makedocs(
     sitename="CoTETE.jl",

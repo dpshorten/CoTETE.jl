@@ -5,20 +5,14 @@
 
 ## Introduction
 
-This package allows one to estimate the transfer entropy between event-based time series (such as spike trains or social media post times) in continuous time
-(that is, without discretising time into bins).
-
-It contains implementations of the estimator and local permutation scheme presented in
-[Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
-
 Transfer entropy (TE) is a measure of information flow between time series. It can be used to
 infer functional networks of statistical associations. Under certain assumptions it
 can also be used to estimate underlying [causal networks](https://doi.org/10.1063/1.5025050)
 from observational data.
 
-This package allows one to estimate the Transfer Entropy (TE) between event-based time series
+This package allows one to estimate the TE between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
-time into bins). The advantages of this approach over the historic discrete-time approach include:
+time into bins). The advantages of this approach over the discrete-time approach include:
 * The continuous-time approach is **provably consistent** - it is guaranteed to converge to the true
   value of the TE in the limit of infinite data. The discrete-time estimator is not consistent. It is easy to create examples
   where it does not converge to the true value of the TE.
@@ -82,6 +76,10 @@ david@home:~$ julia
 ```
 You will need to add three prerequisite packages.
 
+>**Note for new Julia users:** The Julia REPL has a nifty feature called *prompt pasting*, which means that it
+> will automatically remove the `julia>` prompt when you paste. You can, therefore, just copy and paste the entire block
+> below without worrying about these prompts.
+
 ```julia
 julia> import Pkg
 julia> Pkg.add("Distances")
@@ -103,7 +101,7 @@ We can now estimate the TE between these processes, with history embeddings of l
 
 ```julia
 julia> import CoTETE
-julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
+julia> CoTETE.estimate_TE_from_event_times(target, source, 1, 1)
 ```
 
 The answer should be close to 0.
@@ -156,7 +154,7 @@ julia> target = thin_target(source, target, 10);
 We can now estimate the TE
 
 ```julia
-julia> CoTETE.calculate_TE_from_event_times(target, source, 1, 1)
+julia> CoTETE.estimate_TE_from_event_times(target, source, 1, 1)
 ```
 The answer should be close to 0.5.
 

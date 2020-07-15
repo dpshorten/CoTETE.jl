@@ -1,21 +1,33 @@
-# Internal Functions
+# Internal
 
 ```@meta
 CurrentModule = CoTETE
 ```
 
 ```@docs
-calculate_TE
+estimate_TE_from_preprocessed_data
 ```
 
 ```@docs
-construct_history_embeddings
+make_surrogate!
 ```
 
 ```@docs
-make_embeddings_along_time_points
+make_AIS_surrogate!
+```
+
+```@docs
+preprocess_event_times
+```
+
+```@docs
+make_embeddings_along_observation_time_points
 ```
 
 ```@docs
  make_one_embedding
+```
+
+```@docs
+PreprocessedData
 ```

@@ -10,7 +10,7 @@ infer functional networks of statistical associations. Under certain assumptions
 [can also be used](https://doi.org/10.1063/1.5025050) to estimate underlying causal networks
 from observational data.
 
-This package allows one to estimate the Transfer Entropy (TE) between event-based time series
+This package allows one to estimate the TE between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
 time into bins). The advantages of this approach over the discrete-time approach include:
 * The continuous-time approach is **provably consistent** - it is guaranteed to converge to the true
@@ -49,7 +49,9 @@ Notable work on the application of TE to spike trains include:
 
 CoTETE.jl contains implementations of the estimator and local permutation scheme presented in
 [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other
-Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
+Event-Based Data](https://doi.org/10.1101/2020.06.16.154377). If you are new to information-theoretic
+estimators and would like to gain an understanding of how this estimator works, I would recommend
+starting with the [Background](@ref) section of this documentation.
 
 
 
@@ -64,5 +66,5 @@ If you would like to apply TE to other data modalities, the [JIDT](https://githu
 recommended.
 
 ## Acknowledgements
-The estimator implemented here was developed in collaboration with my PhD supervisor, Joe Lizier,
+The estimator implemented here was developed in collaboration with my PhD supervisor, Joseph Lizier,
 as well as Richard Spinney.
