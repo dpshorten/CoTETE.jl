@@ -3,9 +3,8 @@ module CoTETE
 export estimate_TE_from_event_times
 
 using Parameters
-using Distances: evaluate, colwise, Metric, Chebyshev, Euclidean
+using Distances: evaluate, colwise, Metric, Cityblock
 using SpecialFunctions: digamma, gamma
-using Statistics: mean, std
 
 """
     struct CoTETEParameters
@@ -80,7 +79,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     num_target_events::Integer = 0
     num_samples_ratio::AbstractFloat = 1.0
     k_global::Integer = 5
-    metric::Metric = Euclidean()
+    metric::Metric = Cityblock()
     kraskov_noise_level::AbstractFloat = 1e-8
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
