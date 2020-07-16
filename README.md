@@ -85,6 +85,7 @@ julia> import Pkg
 julia> Pkg.add("Distances")
 julia> Pkg.add("StaticArrays")
 julia> Pkg.add("SpecialFunctions")
+julia> Pkg.add("Parameters")
 ```
 For the first example, lets estimate the TE between uncoupled homogeneous Poisson processes. This
 is covered in section II A of [1].
