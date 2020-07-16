@@ -1,9 +1,9 @@
 # CoTETE.jl
 *Continuous-Time Event-based Transfer Entropy*
 
-### [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
-
 It is easy to call this package from **Python**. See this [tutorial](https://dpshorten.github.io/CoTETE.jl/docs/build/quickStartPython/) for a quick guide on how to do this.
+
+### [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
 
 ## Introduction
 
