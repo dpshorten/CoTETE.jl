@@ -3,6 +3,8 @@
 
 ### [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
 
+It is easy to call this package from *Python*. See this [tutorial](https://dpshorten.github.io/CoTETE.jl/docs/build/quickStartPython/) for a quick guide on how to do this.
+
 ## Introduction
 
 Transfer entropy (TE) is a measure of information flow between time series. It can be used to
