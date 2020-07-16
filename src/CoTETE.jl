@@ -436,7 +436,7 @@ true
 """
 function estimate_AIS_and_p_value_from_event_times(
     parameters::CoTETEParameters,
-    target_events::Array{<:AbstractFloat},
+    target_events::Array{<:AbstractFloat};
     return_surrogate_AIS_values::Bool = false,
 )
 
