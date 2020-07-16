@@ -13,6 +13,7 @@ makedocs(
         "Home" => "index.md",
         "background.md",
         "quickStart.md",
+        "quickStartPython.md",
         "public.md",
         "internals.md",
     ]
