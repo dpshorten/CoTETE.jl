@@ -1,4 +1,5 @@
 using Random: shuffle!, shuffle
+using StatsBase: ordinalrank
 
 push!(LOAD_PATH, "NearestNeighbors.jl/src/NearestNeighbors.jl")
 include("NearestNeighbors.jl/src/NearestNeighbors.jl")
@@ -179,6 +180,24 @@ function make_embeddings_along_observation_time_points(
 
     return embeddings, exclusion_windows
 
+end
+
+"""
+    function transform_marginals_to_uniform!(preprocessed_data::PreprocessedData)
+
+Independently transforms each dimension of the history embeddings to be uniformly distributed.
+"""
+function transform_marginals_to_uniform!(preprocessed_data::PreprocessedData)
+    combined =
+        hcat(preprocessed_data.representation_joint, preprocessed_data.sampled_representation_joint)
+    for dim = 1:size(combined, 1)
+        ranks = convert(Array{Float64,1}, ordinalrank(combined[dim, :]))
+        combined[dim, :] = ranks ./ size(combined, 2)
+    end
+    preprocessed_data.representation_joint[:, :] =
+        combined[:, 1:size(preprocessed_data.representation_joint, 2)]
+    preprocessed_data.sampled_representation_joint[:, :] =
+        combined[:, (size(preprocessed_data.representation_joint, 2)+1):end]
 end
 
 """
@@ -384,7 +403,7 @@ function preprocess_event_times(
             [parameters.l_x, parameters.l_z, parameters.l_y],
         )
 
-    return PreprocessedData(
+    preprocessed_data = PreprocessedData(
         representation_joint,
         exclusion_windows,
         sampled_representation_joint,
@@ -393,4 +412,9 @@ function preprocess_event_times(
         end_timestamp,
     )
 
+    if parameters.transform_to_uniform
+        transform_marginals_to_uniform!(preprocessed_data)
+    end
+
+    return preprocessed_data
 end

@@ -9,6 +9,10 @@ estimate_TE_from_preprocessed_data
 ```
 
 ```@docs
+transform_marginals_to_uniform!
+```
+
+```@docs
 make_surrogate!
 ```
 

@@ -17,11 +17,12 @@ using SpecialFunctions: digamma, gamma
         num_target_events::Integer = 0
         num_samples_ratio::AbstractFloat = 1.0
         k_global::Integer = 5
-        metric::Metric = Euclidean()
+        metric::Metric = Cityblock()
         kraskov_noise_level::AbstractFloat = 1e-8
+        transform_to_uniform::Bool = false
         num_surrogates::Integer = 100
         surrogate_num_samples_ratio::AbstractFloat = 1.0
-        k_perm::Integer = 5
+        k_perm::Integer = 10
     end
 
 - `l_x::Integer`: The number of intervals in the target process to use in the history embeddings.
@@ -51,8 +52,12 @@ using SpecialFunctions: digamma, gamma
   This number of samples will be `num_samples_ratio * num_target_events`.
   Corresponds to ``N_U/N_X`` in [^1].
 - `k_global::Integer = 5`: The number of nearest neighbours to consider in initial searches.
-- `metric::Metric = Euclidean()`: The metric to use for nearest neighbour and radius searches.
-- `num_surrogates::Integer = 100`:
+- `metric::Metric = Cityblock()`: The metric to use for nearest neighbour and radius searches.
+- `kraskov_noise_level::AbstractFloat = 1e-8`: Adds a little noise to each value in the embeddings, as suggested
+  by [Kraskov](https://doi.org/10.1103/PhysRevE.69.066138)
+- `transform_to_uniform::Bool = false`: Independently transforms each dimension of the embeddings to be uniformly distributed.
+- `num_surrogates::Integer = 100`: The number of surrogate processes to generate (and estimate the TE on)
+  when finding a ``p`` value.
 - `surrogate_num_samples_ratio::AbstractFloat = 1.0`: Controls the number of samples used to
   to construct the alternate set of history embeddings used by our local permutation scheme.
   This number of samples will be `surrogate_num_samples_ratio * num_target_events`.
@@ -81,6 +86,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     k_global::Integer = 5
     metric::Metric = Cityblock()
     kraskov_noise_level::AbstractFloat = 1e-8
+    transform_to_uniform::Bool = false
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
     k_perm::Integer = 10
@@ -140,7 +146,7 @@ true
 
 Let's try some other options
 ```jldoctest estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
-julia> using Distances: Cityblock
+julia> using Distances: Euclidean
 
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1,
                                             l_y = 2,
@@ -149,7 +155,8 @@ julia> parameters = CoTETE.CoTETEParameters(l_x = 1,
                                             start_event = 100,
                                             num_target_events = 5000,
                                             num_samples_ratio = 2.3,
-                                            metric = Cityblock());
+                                            metric = Euclidean(),
+                                            transform_to_uniform = true);
 
 julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.0
@@ -206,9 +213,9 @@ true
 ```
 
 We can also try extending the length of the target embeddings in order to better resolve this
-dependency
+dependency (along with some other options)
 ```julia estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
-julia> parameters = CoTETE.CoTETEParameters(l_x = 3, l_y = 1);
+julia> parameters = CoTETE.CoTETEParameters(l_x = 3, l_y = 1, transform_to_uniform = true, k_global = 7);
 
 julia> TE = CoTETE.estimate_TE_from_event_times(target, source, 3, 1)
 0.5076
