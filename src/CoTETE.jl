@@ -222,7 +222,11 @@ true
 We can also try extending the length of the target embeddings in order to better resolve this
 dependency (along with some other options)
 ```jldoctest estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
-julia> parameters = CoTETE.CoTETEParameters(l_x = 3, l_y = 1, transform_to_uniform = true, k_global = 7);
+julia> parameters = CoTETE.CoTETEParameters(l_x = 3,
+                                            l_y = 1,
+                                            transform_to_uniform = true,
+                                            k_global = 7,
+                                            num_samples_ratio = 5.0);
 
 julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.5076
@@ -305,6 +309,24 @@ julia> target = sort(1e3*rand(Int(1e4)));
 julia> target = thin_target(source, target, 10);
 
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+
+julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
+(0.5, 0.01)
+
+julia> p < 0.05 # For Doctesting purposes. Should fail very rarely.
+true
+```
+
+Lets try with some other parameters
+
+```jdoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
+
+julia> parameters = CoTETE.CoTETEParameters(l_x = 3,
+                                            l_y = 1,
+                                            transform_to_uniform = true,
+                                            k_global = 7,
+                                            num_samples_ratio = 5.0,
+                                            surrogate_num_samples_ratio = 5.0);
 
 julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
 (0.5, 0.01)
