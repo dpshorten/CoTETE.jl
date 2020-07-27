@@ -20,7 +20,7 @@ Fire up the Julia REPL
 ```console
 david@home:~$ julia
 ```
-You will need to add three prerequisite packages.
+You will need to add some prerequisite packages.
 
 !!! tip "Tip for new Julia users"
     The Julia REPL has a nifty feature called *prompt pasting*, which means that it
@@ -33,6 +33,7 @@ julia> Pkg.add("Distances")
 julia> Pkg.add("StaticArrays")
 julia> Pkg.add("SpecialFunctions")
 julia> Pkg.add("Parameters")
+julia> Pkg.add("StatsBase")
 ```
 For the first example, lets estimate the TE between uncoupled homogeneous Poisson processes. This
 is covered in section II A of [1].
@@ -49,7 +50,8 @@ We can now estimate the TE between these processes, with history embeddings of l
 
 ```julia
 julia> import CoTETE
-julia> CoTETE.estimate_TE_from_event_times(target, source, 1, 1)
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+julia> CoTETE.estimate_TE_from_event_times(parameters, target, source)
 ```
 
 The answer should be close to 0.
