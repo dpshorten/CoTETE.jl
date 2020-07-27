@@ -55,7 +55,7 @@ using SpecialFunctions: digamma, gamma
 - `metric::Metric = Cityblock()`: The metric to use for nearest neighbour and radius searches.
 - `kraskov_noise_level::AbstractFloat = 1e-8`: Adds a little noise to each value in the embeddings, as suggested
   by [Kraskov](https://doi.org/10.1103/PhysRevE.69.066138)
-- `transform_to_uniform::Bool = false`: Independently transforms each dimension of the embeddings to be uniformly distributed.
+- `transform_to_uniform::Bool = false`: Independently transform each dimension of the embeddings to be uniformly distributed.
 - `num_surrogates::Integer = 100`: The number of surrogate processes to generate (and estimate the TE on)
   when finding a ``p`` value.
 - `surrogate_num_samples_ratio::AbstractFloat = 1.0`: Controls the number of samples used to
@@ -163,6 +163,7 @@ julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 
 julia> abs(TE - 0) < 0.1 # For Doctesting purposes
 true
+
 ```
 
 The next example applies the estimator to a more complex problem, specifically, the process
@@ -173,33 +174,38 @@ We create the source process as before. Howevever, the target process is
 originally created as an homogeneous Poisson process with rate 10, before a thinning algorithm
 is applied to it, in order to provide the dependence on the source.
 
-```julia estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
-julia> source = sort(1e4*rand(Int(1e4)));
-
-julia> target = sort(1e4*rand(Int(1e5)));
-
-julia> function thin_target(source, target, target_rate)
-           # Remove target events occurring before first source
+```jldoctest estimate_TE_from_event_times; output = false
+function thin_target(source, target, target_rate)
     	   start_index = 1
     	   while target[start_index] < source[1]
            	 start_index += 1
     	   end
     	   target = target[start_index:end]
-
-	   new_target = Float64[]
+	       new_target = Float64[]
     	   index_of_last_source = 1
     	   for event in target
                while index_of_last_source < length(source) && source[index_of_last_source + 1] < event
                	     index_of_last_source += 1
                end
                distance_to_last_source = event - source[index_of_last_source]
-               λ = 0.5 + 5exp(-50(distance_to_last_source - 0.5)^2) - 5exp(-50(-0.5)^2)
-               if rand() < λ/target_rate
+               lambda = 0.5 + 5exp(-50(distance_to_last_source - 0.5)^2) - 5exp(-50(-0.5)^2)
+               if rand() < lambda/target_rate
                	  push!(new_target, event)
                end
            end
     	   return new_target
        end
+
+# output
+
+thin_target (generic function with 1 method)
+
+```
+
+```jldoctest estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+julia> source = sort(1e4*rand(Int(1e4)));
+
+julia> target = sort(1e4*rand(Int(1e5)));
 
 julia> target = thin_target(source, target, 10);
 
@@ -208,20 +214,22 @@ julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
 julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.5076
 
-julia> abs(TE - 0.5076) < 0.05 # For Doctesting purposes
+julia> abs(TE - 0.5076) < 0.1 # For Doctesting purposes
 true
+
 ```
 
 We can also try extending the length of the target embeddings in order to better resolve this
 dependency (along with some other options)
-```julia estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
+```jldoctest estimate_TE_from_event_times; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> parameters = CoTETE.CoTETEParameters(l_x = 3, l_y = 1, transform_to_uniform = true, k_global = 7);
 
-julia> TE = CoTETE.estimate_TE_from_event_times(target, source, 3, 1)
+julia> TE = CoTETE.estimate_TE_from_event_times(parameters, target, source)
 0.5076
 
-julia> abs(TE - 0.5076) < 0.05 # For Doctesting purposes
+julia> abs(TE - 0.5076) < 0.1 # For Doctesting purposes
 true
+
 ```
 """
 function estimate_TE_from_event_times(
@@ -289,7 +297,7 @@ We create the source process as before. Howevever, the target process is
 originally created as an homogeneous Poisson process with rate 10, before the thinning algorithm
 is applied to it, in order to provide the dependence on the source.
 
-```julia estimate_TE_from_event_times; filter = r"\\(.*\\)"
+```jdoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
 julia> source = sort(1e3*rand(Int(1e3)));
 
 julia> target = sort(1e3*rand(Int(1e4)));
