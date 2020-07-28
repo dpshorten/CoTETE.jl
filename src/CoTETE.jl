@@ -267,13 +267,13 @@ end
 
 calculate the TE and the ``p`` value of it being statistically different from zero.
 
+# Examples
+
 This example demonstrates estimating the TE and ``p`` value between uncoupled homogeneous Poisson processes.
 As the true value of the TE is zero, we expect the ``p`` value to be uniformly disributed between zero and one.
 
 We first create the source and target processes, each with 1 000 events and with rate 1, before
 running the estimator and the surrogate generation procedure.
-
-# Examples
 
 ```jldoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
 julia> source = sort(1e3*rand(Int(1e3)));
@@ -281,6 +281,19 @@ julia> source = sort(1e3*rand(Int(1e3)));
 julia> target = sort(1e3*rand(Int(1e3)));
 
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+
+julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
+(0.0, 0.5)
+
+julia> p > 0.05 # For Doctesting purposes. Should fail every now and then.
+true
+
+```
+
+Lets try some other parameters
+
+```jldoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1, transform_to_uniform = true, k_perm = 20);
 
 julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
 (0.0, 0.5)
