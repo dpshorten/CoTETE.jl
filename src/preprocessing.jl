@@ -190,7 +190,8 @@ Independently transforms each dimension of the history embeddings to be uniforml
 """
 function transform_marginals_to_uniform!(preprocessed_data::PreprocessedData)
 
-    combined = hcat(preprocessed_data.representation_joint, preprocessed_data.sampled_representation_joint)
+    combined =
+        hcat(preprocessed_data.representation_joint, preprocessed_data.sampled_representation_joint)
     preprocessed_data.empirical_cdf = zeros(size(combined))
     for dim = 1:size(combined, 1)
         preprocessed_data.empirical_cdf[dim, :] = sort(combined[dim, :])
@@ -217,31 +218,20 @@ function transform_marginals_to_uniform_on_cdf!(
                 preprocessed_data.empirical_cdf[dim, :],
                 history_embeddings[dim, i],
             )
-            if upper_index ==
-               size(preprocessed_data.empirical_cdf, 2) + 1
+            if upper_index == size(preprocessed_data.empirical_cdf, 2) + 1
                 history_embeddings[dim, i] = 1.0
             elseif upper_index == 1
-                history_embeddings[dim, i] =
-                    1 / size(preprocessed_data.empirical_cdf, 2)
+                history_embeddings[dim, i] = 1 / size(preprocessed_data.empirical_cdf, 2)
             else
                 history_embeddings[dim, i] =
                     (
                         upper_index - 1 + (
                             (
                                 history_embeddings[dim, i] -
-                                preprocessed_data.empirical_cdf[
-                                    dim,
-                                    upper_index-1,
-                                ]
+                                preprocessed_data.empirical_cdf[dim, upper_index-1]
                             ) / (
-                                preprocessed_data.empirical_cdf[
-                                    dim,
-                                    upper_index,
-                                ] -
-                                preprocessed_data.empirical_cdf[
-                                    dim,
-                                    upper_index-1,
-                                ]
+                                preprocessed_data.empirical_cdf[dim, upper_index] -
+                                preprocessed_data.empirical_cdf[dim, upper_index-1]
                             )
                         )
                     ) / size(preprocessed_data.empirical_cdf, 2)
@@ -267,7 +257,7 @@ function make_surrogate!(
     preprocessed_data::PreprocessedData,
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat};
-    conditioning_events::Array{<:AbstractFloat} = Float32[],
+    conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = Float32[],
 )
 
     # Declare this to make the code slightly less verbose
@@ -399,7 +389,7 @@ function preprocess_event_times(
     parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat};
     source_events::Array{<:AbstractFloat} = Float32[],
-    conditioning_events::Array{<:AbstractFloat} = Float32[],
+    conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = [Float32[]],
 )
 
     # We first need to figure out which target event will be the first and how many we will include
@@ -415,10 +405,12 @@ function preprocess_event_times(
                 index_of_target_start_event += 1
             end
         end
-        if parameters.l_z > 0
-            while conditioning_events[parameters.l_z] >
-                  target_events[parameters.index_of_target_start_event]
-                index_of_target_start_event += 1
+        if length(parameters.l_z) > 0
+            for i = 1:length(parameters.l_z)
+                while conditioning_events[i][parameters.l_z[i]] >
+                      target_events[index_of_target_start_event]
+                    index_of_target_start_event += 1
+                end
             end
         end
         num_target_events = length(target_events) - index_of_target_start_event
@@ -435,12 +427,21 @@ function preprocess_event_times(
     start_timestamp = target_events[index_of_target_start_event]
     end_timestamp = target_events[index_of_target_start_event+num_target_events]
 
+    array_of_event_arrays = [target_events]
+    array_of_dimensions = [parameters.l_x]
+    for i = 1:length(parameters.l_z)
+        push!(array_of_event_arrays, conditioning_events[i])
+        push!(array_of_dimensions, parameters.l_z[i])
+    end
+    push!(array_of_event_arrays, source_events)
+    push!(array_of_dimensions, parameters.l_y)
+
     representation_joint, exclusion_windows = make_embeddings_along_observation_time_points(
         target_events,
         index_of_target_start_event,
         num_target_events,
-        [target_events, conditioning_events, source_events],
-        [parameters.l_x, parameters.l_z, parameters.l_y],
+        array_of_event_arrays,
+        array_of_dimensions,
     )
 
     num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
@@ -453,8 +454,8 @@ function preprocess_event_times(
             sample_points,
             1,
             length(sample_points) - 2, #TODO Come back and look at this -2
-            [target_events, conditioning_events, source_events],
-            [parameters.l_x, parameters.l_z, parameters.l_y],
+            array_of_event_arrays,
+            array_of_dimensions,
         )
 
     preprocessed_data = PreprocessedData(

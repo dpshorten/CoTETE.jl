@@ -77,7 +77,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
 @with_kw struct CoTETEParameters
     l_x::Integer = 0
     l_y::Integer = 0
-    l_z::Integer = 0
+    l_z::Array{Integer, 1} = []
     auto_find_start_and_num_events::Bool = true
     num_target_events_cap::Integer = -1
     start_event::Integer = 1
@@ -240,7 +240,7 @@ function estimate_TE_from_event_times(
     parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat};
-    conditioning_events::Array{<:AbstractFloat} = Float32[],
+    conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = [Float32[]],
 )
 
     preprocessed_data = CoTETE.preprocess_event_times(
@@ -353,7 +353,7 @@ function estimate_TE_and_p_value_from_event_times(
     parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat};
-    conditioning_events::Array{<:AbstractFloat} = Float32[],
+    conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = [Float32[]],
     return_surrogate_TE_values::Bool = false,
 )
 
@@ -547,7 +547,7 @@ function estimate_TE_from_preprocessed_data(
 )
 
     # Lets declare these to make the rest of this function less verbose
-    l_x_plus_l_z = parameters.l_x + parameters.l_z
+    l_x_plus_l_z = parameters.l_x + sum(parameters.l_z)
     l_y = parameters.l_y
 
     # Add a bit of noise as recommended Kraskov
