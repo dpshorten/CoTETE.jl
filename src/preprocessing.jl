@@ -261,7 +261,7 @@ function make_surrogate!(
 )
 
     # Declare this to make the code slightly less verbose
-    l_x_plus_l_z = parameters.l_x + parameters.l_z
+    l_x_plus_l_z = parameters.l_x + sum(parameters.l_z)
 
     # Construct a new sampling of the distribution P_U
     num_sample_points = Int(round(
@@ -273,13 +273,23 @@ function make_surrogate!(
             rand(num_sample_points)
         )
     sort!(sample_points)
+
+    array_of_event_arrays = [target_events]
+    array_of_dimensions = [parameters.l_x]
+    for i = 1:length(parameters.l_z)
+        push!(array_of_event_arrays, conditioning_events[i])
+        push!(array_of_dimensions, parameters.l_z[i])
+    end
+    push!(array_of_event_arrays, source_events)
+    push!(array_of_dimensions, parameters.l_y)
+
     resampled_representation_joint, resampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
             sample_points,
             1,
             length(sample_points) - 2, #TODO Come back and look at this -2
-            [target_events, conditioning_events, source_events],
-            [parameters.l_x, parameters.l_z, parameters.l_y],
+            array_of_event_arrays,
+            array_of_dimensions,
         )
 
     if parameters.transform_to_uniform
