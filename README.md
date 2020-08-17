@@ -59,10 +59,10 @@ Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
 [Install Julia](https://julialang.org/downloads/)
 
 Clone this repo (make sure to include the --recurse-submodules flag so that the modified nearest neighbours
-package gets included).
+package gets included as well as the --branch flag to avoid recent potentially unstable changes).
 
 ```console
-david@home:~$ git clone --recurse-submodules https://github.com/dpshorten/CoTETE.jl.git
+david@home:~$ git clone --recurse-submodules --branch v0.1 https://github.com/dpshorten/CoTETE.jl.git
 ```
 
 make sure that CoTETE.jl/src/ is on your JULIA_LOAD_PATH. eg:
