@@ -90,6 +90,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
     k_perm::Integer = 10
+    add_dummy_exclusion_windows::Bool = false
 end
 
 include("preprocessing.jl")
@@ -364,7 +365,19 @@ function estimate_TE_and_p_value_from_event_times(
         conditioning_events = conditioning_events,
     )
 
-    TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data)
+    first_calc_preprocessed_data = deepcopy(preprocessed_data)
+if parameters.add_dummy_exclusion_windows
+        CoTETE.make_surrogate!(
+            parameters,
+            first_calc_preprocessed_data,
+            target_events,
+            source_events,
+            conditioning_events = conditioning_events,
+            only_dummy_exclusion_windows = true,
+        )
+    end
+
+    TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data)
 
     surrogate_TE_values = zeros(parameters.num_surrogates)
     for i = 1:parameters.num_surrogates

@@ -155,7 +155,7 @@ function make_embeddings_along_observation_time_points(
     embeddings = []
     exclusion_windows = []
     for observation_time_point in
-        observation_time_points[start_observation_time_point:(start_observation_time_point+num_observation_time_points_to_use)]
+        observation_time_points[start_observation_time_point:(start_observation_time_point+num_observation_time_points_to_use - 1)]
         # Update the position of each tracker variable
         for i = 1:length(trackers)
             while (trackers[i] < length(event_time_arrays[i])) &&
@@ -258,6 +258,7 @@ function make_surrogate!(
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat};
     conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = Float32[],
+    only_dummy_exclusion_windows::Bool = false,
 )
 
     # Declare this to make the code slightly less verbose
@@ -321,8 +322,10 @@ function make_surrogate!(
             index = neighbour_indices[rand(1:end)]
         end
         used_indices[i] = index
-        preprocessed_data.representation_joint[(l_x_plus_l_z+1):end, permutation[i]] =
-            resampled_representation_joint[(l_x_plus_l_z+1):end, index]
+        if !only_dummy_exclusion_windows
+            preprocessed_data.representation_joint[(l_x_plus_l_z+1):end, permutation[i]] =
+                resampled_representation_joint[(l_x_plus_l_z+1):end, index]
+        end
         added_exclusion_windows[1, :, permutation[i]] = resampled_exclusion_windows[1, :, index]
     end
 
@@ -463,7 +466,7 @@ function preprocess_event_times(
         make_embeddings_along_observation_time_points(
             sample_points,
             1,
-            length(sample_points) - 2, #TODO Come back and look at this -2
+            length(sample_points),
             array_of_event_arrays,
             array_of_dimensions,
         )
