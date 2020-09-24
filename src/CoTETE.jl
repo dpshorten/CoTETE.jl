@@ -85,7 +85,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     num_samples_ratio::AbstractFloat = 1.0
     k_global::Integer = 5
     metric::Metric = Cityblock()
-    kraskov_noise_level::AbstractFloat = 1e-8
+    kraskov_noise_level::AbstractFloat = 1e-6
     transform_to_uniform::Bool = false
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0

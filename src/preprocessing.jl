@@ -459,7 +459,8 @@ function preprocess_event_times(
 
     num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
     # place the sampel points uniform randomly between the start and the end.
-    sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
+    #sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
+    sample_points = collect(range(start_timestamp, stop = end_timestamp, length = num_samples))
     sort!(sample_points)
 
     sampled_representation_joint, sampled_exclusion_windows =
