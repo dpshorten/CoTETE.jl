@@ -8,9 +8,7 @@ It is easy to call this package from **Python**. See this [tutorial](https://dps
 ## Introduction
 
 Transfer entropy (TE) is a measure of information flow between time series. It can be used to
-infer functional networks of statistical associations. Under certain assumptions it
-can also be used to estimate underlying [causal networks](https://doi.org/10.1063/1.5025050)
-from observational data.
+infer functional and effective network. 
 
 This package allows one to estimate the TE between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
