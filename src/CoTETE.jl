@@ -380,7 +380,7 @@ if parameters.add_dummy_exclusion_windows
     TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data)
 
     surrogate_TE_values = zeros(parameters.num_surrogates)
-    for i = 1:parameters.num_surrogates
+    Threads.@threads for i = 1:parameters.num_surrogates
         surrogate_preprocessed_data = deepcopy(preprocessed_data)
         CoTETE.make_surrogate!(
             parameters,
