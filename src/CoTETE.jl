@@ -5,6 +5,7 @@ export estimate_TE_from_event_times
 using Parameters
 using Distances: evaluate, colwise, Metric, Cityblock
 using SpecialFunctions: digamma, gamma
+using StatsBase: sample
 
 """
     struct CoTETEParameters
@@ -77,7 +78,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
 @with_kw struct CoTETEParameters
     l_x::Integer = 0
     l_y::Integer = 0
-    l_z::Array{Integer, 1} = []
+    l_z::Array{Integer,1} = []
     auto_find_start_and_num_events::Bool = true
     num_target_events_cap::Integer = -1
     start_event::Integer = 1
@@ -87,6 +88,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     metric::Metric = Cityblock()
     kraskov_noise_level::AbstractFloat = 1e-6
     transform_to_uniform::Bool = false
+    num_average_samples::Int = -1
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
     k_perm::Integer = 10
@@ -366,7 +368,7 @@ function estimate_TE_and_p_value_from_event_times(
     )
 
     first_calc_preprocessed_data = deepcopy(preprocessed_data)
-if parameters.add_dummy_exclusion_windows
+    if parameters.add_dummy_exclusion_windows
         CoTETE.make_surrogate!(
             parameters,
             first_calc_preprocessed_data,
@@ -380,7 +382,8 @@ if parameters.add_dummy_exclusion_windows
     TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data)
 
     surrogate_TE_values = zeros(parameters.num_surrogates)
-    Threads.@threads for i = 1:parameters.num_surrogates
+    #Threads.@threads
+    for i = 1:parameters.num_surrogates
         surrogate_preprocessed_data = deepcopy(preprocessed_data)
         CoTETE.make_surrogate!(
             parameters,
@@ -512,7 +515,11 @@ function estimate_AIS_and_p_value_from_event_times(
         surrogate_preprocessed_data = deepcopy(preprocessed_data)
         CoTETE.make_AIS_surrogate!(parameters, surrogate_preprocessed_data, target_events)
         surrogate_AIS_values[i] =
-            -CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data, AIS_only = true)
+            -CoTETE.estimate_TE_from_preprocessed_data(
+                parameters,
+                surrogate_preprocessed_data,
+                AIS_only = true,
+            )
     end
 
     p = 0
@@ -598,8 +605,19 @@ function estimate_TE_from_preprocessed_data(
     )
 
     TE = 0.0
-    # Iterate over each event in the target process
-    for i = 1:size(preprocessed_data.representation_joint, 2)
+
+    if parameters.num_average_samples == -1 ||
+       (size(preprocessed_data.representation_joint, 2) < parameters.num_average_samples)
+        iteration_indices = collect(1:1:size(preprocessed_data.representation_joint, 2))
+    else
+        iteration_indices = sample(
+            collect(1:1:size(preprocessed_data.representation_joint, 2)),
+            parameters.num_average_samples,
+            replace = false,
+        )
+    end
+
+    for i in iteration_indices
         #=
           We first estimate the contribution from the AIS. This corresponeds to the second
           KL divergence term in equation 9 of doi.org/10.1101/2020.06.16.154377.
@@ -739,7 +757,12 @@ function estimate_TE_from_preprocessed_data(
             )
     end
 
-    return (TE / (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp))
+    return (
+        (TE * size(preprocessed_data.representation_joint, 2)) / (
+            length(iteration_indices) *
+            (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp)
+        )
+    )
 
 end
 
