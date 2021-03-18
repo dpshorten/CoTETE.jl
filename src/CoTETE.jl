@@ -538,6 +538,45 @@ function estimate_AIS_and_p_value_from_event_times(
 
 end
 
+function estimate_AIS_and_p_value_of_last_dim_from_event_times(
+    parameters::CoTETEParameters,
+    target_events::Array{<:AbstractFloat};
+    return_surrogate_AIS_values::Bool = false,
+)
+
+    preprocessed_data = CoTETE.preprocess_event_times(parameters, target_events)
+
+    AIS = -CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data, AIS_only = true)
+
+    surrogate_AIS_values = zeros(parameters.num_surrogates)
+    for i = 1:parameters.num_surrogates
+        surrogate_preprocessed_data = deepcopy(preprocessed_data)
+        CoTETE.make_surrogate!(parameters, surrogate_preprocessed_data, target_events, Float32[],
+                               only_last_dim = true)
+        surrogate_AIS_values[i] =
+            -CoTETE.estimate_TE_from_preprocessed_data(
+                parameters,
+                surrogate_preprocessed_data,
+                AIS_only = true,
+            )
+    end
+
+    p = 0
+    for surrogate_val in surrogate_AIS_values
+        if surrogate_val >= AIS
+            p += 1
+        end
+    end
+    p /= parameters.num_surrogates
+
+    if return_surrogate_AIS_values
+        return AIS, p, surrogate_AIS_values
+    else
+        return AIS, p
+    end
+
+end
+
 """
     estimate_TE_from_preprocessed_data(parameters::CoTETEParameters, preprocessed_data::PreprocessedData)
 
