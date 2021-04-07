@@ -279,8 +279,11 @@ function make_surrogate!(
     #     )
 
     sample_points = []
+    temp_target_events = deepcopy(target_events)
+    temp_target_events = temp_target_events[temp_target_events .>= preprocessed_data.start_timestamp]
+    temp_target_events = temp_target_events[temp_target_events .<= preprocessed_data.end_timestamp]
     for i = 1:Int(parameters.surrogate_num_samples_ratio)
-        append!(sample_points, target_events)
+        append!(sample_points, temp_target_events)
     end
     sample_points = sample_points +  200 .* (rand(length(sample_points)) .- 0.5)
     sort!(sample_points)
