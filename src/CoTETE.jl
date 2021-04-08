@@ -410,7 +410,7 @@ function estimate_TE_and_p_value_from_event_times(
 
     if return_surrogate_TE_values && return_locals
         locals = locals .- mean(surrogate_locals, dims = 1)
-        return TE, p, surrogate_TE_values, locals
+        return TE, p, surrogate_TE_values, locals, preprocessed_data.raw_event_times
     elseif return_surrogate_TE_values
         return TE, p, surrogate_TE_values
     else
