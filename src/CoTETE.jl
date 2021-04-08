@@ -5,6 +5,7 @@ export estimate_TE_from_event_times
 using Parameters
 using Distances: evaluate, colwise, Metric, Cityblock
 using SpecialFunctions: digamma, gamma
+using Statistics: mean
 using StatsBase: sample
 
 """
@@ -358,6 +359,7 @@ function estimate_TE_and_p_value_from_event_times(
     source_events::Array{<:AbstractFloat};
     conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = [Float32[]],
     return_surrogate_TE_values::Bool = false,
+    return_locals::Bool = false
 )
 
     preprocessed_data = CoTETE.preprocess_event_times(
@@ -379,9 +381,10 @@ function estimate_TE_and_p_value_from_event_times(
         )
     end
 
-    TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data)
+    TE, locals = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data, return_locals = return_locals)
 
     surrogate_TE_values = zeros(parameters.num_surrogates)
+    surrogate_locals = zeros(parameters.num_surrogates, length(locals))
     #Threads.@threads
     for i = 1:parameters.num_surrogates
         surrogate_preprocessed_data = deepcopy(preprocessed_data)
@@ -392,8 +395,9 @@ function estimate_TE_and_p_value_from_event_times(
             source_events,
             conditioning_events = conditioning_events,
         )
-        surrogate_TE_values[i] =
-            CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data)
+        surrogate_TE_values[i], temp_surrogate_locals =
+            CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data, return_locals = return_locals)
+        surrogate_locals[i, :] = temp_surrogate_locals
     end
 
     p = 0
@@ -404,7 +408,10 @@ function estimate_TE_and_p_value_from_event_times(
     end
     p /= parameters.num_surrogates
 
-    if return_surrogate_TE_values
+    if return_surrogate_TE_values && return_locals
+        locals = locals .- mean(surrogate_locals, dims = 1)
+        return TE, p, surrogate_TE_values, locals
+    elseif return_surrogate_TE_values
         return TE, p, surrogate_TE_values
     else
         return TE, p
@@ -603,6 +610,7 @@ function estimate_TE_from_preprocessed_data(
     parameters::CoTETEParameters,
     preprocessed_data::PreprocessedData;
     AIS_only::Bool = false,
+    return_locals::Bool = false,
 )
 
     # Lets declare these to make the rest of this function less verbose
@@ -643,8 +651,6 @@ function estimate_TE_from_preprocessed_data(
         reorder = false,
     )
 
-    TE = 0.0
-
     if parameters.num_average_samples == -1 ||
        (size(preprocessed_data.representation_joint, 2) < parameters.num_average_samples)
         iteration_indices = collect(1:1:size(preprocessed_data.representation_joint, 2))
@@ -654,6 +660,12 @@ function estimate_TE_from_preprocessed_data(
             parameters.num_average_samples,
             replace = false,
         )
+    end
+
+    TE = 0.0
+    locals = []
+    if return_locals
+        locals = zeros(length(iteration_indices))
     end
 
     for i in iteration_indices
@@ -712,12 +724,17 @@ function estimate_TE_from_preprocessed_data(
             sampled_representation_conditionals[:, indices_sampled_conditionals_from_radius_search],
         ))
 
-        TE += (
+        neg_local_AIS = (
             l_x_plus_l_z * log(radius_conditionals_inside_first_radius) -
             l_x_plus_l_z * log(radius_sampled_conditionals_inside_first_radius) -
             digamma(size(indices_conditionals_from_radius_search)[1]) +
             digamma(size(indices_sampled_conditionals_from_radius_search)[1])
         )
+        TE += neg_local_AIS
+
+        if return_locals
+            locals[i] += neg_local_AIS
+        end
 
         if !AIS_only
             #=
@@ -778,12 +795,14 @@ function estimate_TE_from_preprocessed_data(
                 ],
             ))
 
-            TE += (
+            local_second_component = (
                 -(l_x_plus_l_z + l_y)log(radius_joint_inside_first_radius) +
                 (l_x_plus_l_z + l_y)log(radius_sampled_joint_inside_first_radius) +
                 digamma(size(indices_joint_from_radius_search)[1]) -
                 digamma(size(indices_sampled_joint_from_radius_search)[1])
             )
+            TE += local_second_component
+            locals[i] += local_second_component
         end
     end
 
@@ -796,12 +815,16 @@ function estimate_TE_from_preprocessed_data(
             )
     end
 
-    return (
-        (TE * size(preprocessed_data.representation_joint, 2)) / (
+    normalised_TE = (TE * size(preprocessed_data.representation_joint, 2)) / (
             length(iteration_indices) *
             (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp)
         )
-    )
+
+    if return_locals
+        return normalised_TE, locals
+    else
+        return normalised_TE
+    end
 
 end
 

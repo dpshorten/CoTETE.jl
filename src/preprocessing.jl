@@ -47,6 +47,7 @@ mutable struct PreprocessedData
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
     sampled_exclusion_windows::Array{<:AbstractFloat,3}
+    raw_event_times::Array{<:AbstractFloat,1}
     empirical_cdf::Array{<:AbstractFloat,2}
     start_timestamp::AbstractFloat
     end_timestamp::AbstractFloat
@@ -521,6 +522,7 @@ function preprocess_event_times(
         exclusion_windows,
         sampled_representation_joint,
         sampled_exclusion_windows,
+        target_events[index_of_target_start_event:(index_of_target_start_event+num_target_events)],
         [0.0 0.0; 0.0 0.0],
         start_timestamp,
         end_timestamp,
