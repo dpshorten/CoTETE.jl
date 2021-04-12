@@ -522,7 +522,7 @@ function preprocess_event_times(
         exclusion_windows,
         sampled_representation_joint,
         sampled_exclusion_windows,
-        target_events[index_of_target_start_event:(index_of_target_start_event+num_target_events)],
+        target_events[index_of_target_start_event:(index_of_target_start_event + num_target_events - 1)],
         [0.0 0.0; 0.0 0.0],
         start_timestamp,
         end_timestamp,
