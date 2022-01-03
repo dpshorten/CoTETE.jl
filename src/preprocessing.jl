@@ -134,7 +134,7 @@ julia> target = cumsum(ones(20)); # target is {1, 2, 3, ...}
 
 julia> observation_points = cumsum(ones(20)) .- 0.75; # observation points are {0.25, 1.25, 2.25, ...}
 
-julia> CoTETE.make_embeddings_along_observation_time_points(observation_points, 5, 2, [target, source, conditional], [2, 1, 1])
+julia> CoTETE.make_embeddings_along_observation_time_points(observation_points, 5, 3, [target, source, conditional], [2, 1, 1])
 ([0.25 0.25 0.25; 1.0 1.0 1.0; 0.75 0.75 0.75; 0.5 0.5 0.5], [3.0 4.25]
 
 [4.0 5.25]
@@ -426,7 +426,7 @@ function preprocess_event_times(
                 end
             end
         end
-        num_target_events = length(target_events) - index_of_target_start_event
+        num_target_events = length(target_events) - index_of_target_start_event + 1
         if parameters.num_target_events_cap > 0 &&
            num_target_events > parameters.num_target_events_cap
             num_target_events = parameters.num_target_events_cap
@@ -438,7 +438,7 @@ function preprocess_event_times(
     end
 
     start_timestamp = target_events[index_of_target_start_event]
-    end_timestamp = target_events[index_of_target_start_event+num_target_events]
+    end_timestamp = target_events[index_of_target_start_event + num_target_events - 1]
 
     array_of_event_arrays = [target_events]
     array_of_dimensions = [parameters.l_x]
@@ -459,8 +459,8 @@ function preprocess_event_times(
 
     num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
     # place the sampel points uniform randomly between the start and the end.
-    #sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
-    sample_points = collect(range(start_timestamp, stop = end_timestamp, length = num_samples))
+    sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
+    #sample_points = collect(range(start_timestamp, stop = end_timestamp, length = num_samples))
     sort!(sample_points)
 
     sampled_representation_joint, sampled_exclusion_windows =
