@@ -1,6 +1,8 @@
 # CoTETE.jl
 *Continuous-Time Event-based Transfer Entropy*
 
+Contains an implementation of the estimator proposed in [this paper](https://doi.org/10.1371/journal.pcbi.1008054)
+
 It is easy to call this package from **Python**. See this [tutorial](https://dpshorten.github.io/CoTETE.jl/docs/build/quickStartPython/) for a quick guide on how to do this.
 
 ### [Documentation](https://dpshorten.github.io/CoTETE.jl/docs/build/index.html)
@@ -10,9 +12,7 @@ It is easy to call this package from *Python*. See this [tutorial](https://dpsho
 ## Introduction
 
 Transfer entropy (TE) is a measure of information flow between time series. It can be used to
-infer functional networks of statistical associations. Under certain assumptions it
-can also be used to estimate underlying [causal networks](https://doi.org/10.1063/1.5025050)
-from observational data.
+infer functional and effective networks. 
 
 This package allows one to estimate the TE between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
@@ -33,7 +33,7 @@ time into bins). The advantages of this approach over the discrete-time approach
   use of this method can be demonstrated to lead to high false-positive rates.
   CoTETE.jl contains an implementation of a method for generating surrogates which conform to the
   correct null hypothesis of conditional independence.
-See [our paper](https://doi.org/10.1101/2020.06.16.154377) for more details on all of these points.
+See [our paper](https://doi.org/10.1371/journal.pcbi.1008054) for more details on all of these points.
 
 Transfer entropy has already been widely applied to the spiking activity of neurons.
 Notable work on the application of TE to spike trains include:
@@ -51,20 +51,15 @@ Notable work on the application of TE to spike trains include:
   [4](https://doi.org/10.1103/PhysRevE.90.022721)
   )
 
-CoTETE.jl contains implementations of the estimator and local permutation scheme presented in
-[Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other
-Event-Based Data](https://doi.org/10.1101/2020.06.16.154377).
-
-
 ## Getting Started
 
 [Install Julia](https://julialang.org/downloads/)
 
 Clone this repo (make sure to include the --recurse-submodules flag so that the modified nearest neighbours
-package gets included).
+package gets included as well as the --branch flag to avoid recent potentially unstable changes).
 
 ```console
-david@home:~$ git clone --recurse-submodules https://github.com/dpshorten/CoTETE.jl.git
+david@home:~$ git clone --recurse-submodules --branch v0.1 https://github.com/dpshorten/CoTETE.jl.git
 ```
 
 make sure that CoTETE.jl/src/ is on your JULIA_LOAD_PATH. eg:
@@ -165,6 +160,9 @@ The answer should be close to 0.5.
 
 For both of these examples, increasing the number of events in the processes will give estimates closer to the true value.
 
+## Note on negative values
+
+Kraskov-style estimators of information-theoretic quantities (such as this one) can produce negative values. In TE estimation this is most commonly encountered when the target present state has a strong dependence on the target history but is only weakly dependent (or conditionally independent) of the source history. This leads to a violation of the assumption of local uniformity and a negative bias. This issue is discussed in detail in the 9th paragraph of the Discussion section of [the paper](https://doi.org/10.1371/journal.pcbi.1008054) proposing this estimator. A good discussion of it can also be found in the [JIDT documentation](https://github.com/jlizier/jidt/wiki/FAQs#what-does-it-mean-if-i-get-negative-results-from-a-kraskov-stoegbauer-grassberger-estimator). As mentioned in these resources, the issue can be easily resolved by debiasing the estimator by subtracting the mean of the surrogate TE estimates from the estimated value. This debiasing procedure should be incorporated as an option in this library in the near future.
 
 ## Assistance
 
@@ -172,6 +170,6 @@ If you have any issues using this software, please add an issue here on github, 
 
 ## References
 
-[1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2020). [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1101/2020.06.16.154377). bioRxiv 2020.06.16.154377.
+[1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2021). [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based Data](https://doi.org/10.1371/journal.pcbi.1008054). PLoS Computaional Biology.
 
 [2] Spinney, R. E., Prokopenko, M., & Lizier, J. T. (2017). [Transfer entropy in continuous time, with applications to jump and neural spiking processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3), 032319.

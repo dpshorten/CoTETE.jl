@@ -47,6 +47,7 @@ mutable struct PreprocessedData
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
     sampled_exclusion_windows::Array{<:AbstractFloat,3}
+    empirical_cdf::Array{<:AbstractFloat,2}
     start_timestamp::AbstractFloat
     end_timestamp::AbstractFloat
 end
@@ -154,7 +155,7 @@ function make_embeddings_along_observation_time_points(
     embeddings = []
     exclusion_windows = []
     for observation_time_point in
-        observation_time_points[start_observation_time_point:(start_observation_time_point+num_observation_time_points_to_use)]
+        observation_time_points[start_observation_time_point:(start_observation_time_point+num_observation_time_points_to_use - 1)]
         # Update the position of each tracker variable
         for i = 1:length(trackers)
             while (trackers[i] < length(event_time_arrays[i])) &&
@@ -188,16 +189,55 @@ end
 Independently transforms each dimension of the history embeddings to be uniformly distributed.
 """
 function transform_marginals_to_uniform!(preprocessed_data::PreprocessedData)
+
     combined =
         hcat(preprocessed_data.representation_joint, preprocessed_data.sampled_representation_joint)
+    preprocessed_data.empirical_cdf = zeros(size(combined))
     for dim = 1:size(combined, 1)
-        ranks = convert(Array{Float64,1}, ordinalrank(combined[dim, :]))
-        combined[dim, :] = ranks ./ size(combined, 2)
+        preprocessed_data.empirical_cdf[dim, :] = sort(combined[dim, :])
     end
-    preprocessed_data.representation_joint[:, :] =
-        combined[:, 1:size(preprocessed_data.representation_joint, 2)]
-    preprocessed_data.sampled_representation_joint[:, :] =
-        combined[:, (size(preprocessed_data.representation_joint, 2)+1):end]
+
+    transform_marginals_to_uniform_on_cdf!(
+        preprocessed_data,
+        preprocessed_data.representation_joint,
+    )
+
+    transform_marginals_to_uniform_on_cdf!(
+        preprocessed_data,
+        preprocessed_data.sampled_representation_joint,
+    )
+end
+
+function transform_marginals_to_uniform_on_cdf!(
+    preprocessed_data::PreprocessedData,
+    history_embeddings::Array{<:AbstractFloat,2},
+)
+    for dim = 1:size(history_embeddings, 1)
+        for i = 1:size(history_embeddings, 2)
+            upper_index = searchsortedfirst(
+                preprocessed_data.empirical_cdf[dim, :],
+                history_embeddings[dim, i],
+            )
+            if upper_index == size(preprocessed_data.empirical_cdf, 2) + 1
+                history_embeddings[dim, i] = 1.0
+            elseif upper_index == 1
+                history_embeddings[dim, i] = 1 / size(preprocessed_data.empirical_cdf, 2)
+            else
+                history_embeddings[dim, i] =
+                    (
+                        upper_index - 1 + (
+                            (
+                                history_embeddings[dim, i] -
+                                preprocessed_data.empirical_cdf[dim, upper_index-1]
+                            ) / (
+                                preprocessed_data.empirical_cdf[dim, upper_index] -
+                                preprocessed_data.empirical_cdf[dim, upper_index-1]
+                            )
+                        )
+                    ) / size(preprocessed_data.empirical_cdf, 2)
+            end
+        end
+    end
 end
 
 """
@@ -217,11 +257,12 @@ function make_surrogate!(
     preprocessed_data::PreprocessedData,
     target_events::Array{<:AbstractFloat},
     source_events::Array{<:AbstractFloat};
-    conditioning_events::Array{<:AbstractFloat} = Float32[],
+    conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = Float32[],
+    only_dummy_exclusion_windows::Bool = false,
 )
 
     # Declare this to make the code slightly less verbose
-    l_x_plus_l_z = parameters.l_x + parameters.l_z
+    l_x_plus_l_z = parameters.l_x + sum(parameters.l_z)
 
     # Construct a new sampling of the distribution P_U
     num_sample_points = Int(round(
@@ -233,14 +274,28 @@ function make_surrogate!(
             rand(num_sample_points)
         )
     sort!(sample_points)
+
+    array_of_event_arrays = [target_events]
+    array_of_dimensions = [parameters.l_x]
+    for i = 1:length(parameters.l_z)
+        push!(array_of_event_arrays, conditioning_events[i])
+        push!(array_of_dimensions, parameters.l_z[i])
+    end
+    push!(array_of_event_arrays, source_events)
+    push!(array_of_dimensions, parameters.l_y)
+
     resampled_representation_joint, resampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
             sample_points,
             1,
             length(sample_points) - 2, #TODO Come back and look at this -2
-            [target_events, conditioning_events, source_events],
-            [parameters.l_x, parameters.l_z, parameters.l_y],
+            array_of_event_arrays,
+            array_of_dimensions,
         )
+
+    if parameters.transform_to_uniform
+        transform_marginals_to_uniform_on_cdf!(preprocessed_data, resampled_representation_joint)
+    end
 
     tree = NearestNeighbors.KDTree(
         resampled_representation_joint[1:l_x_plus_l_z, :],
@@ -267,8 +322,10 @@ function make_surrogate!(
             index = neighbour_indices[rand(1:end)]
         end
         used_indices[i] = index
-        preprocessed_data.representation_joint[(l_x_plus_l_z+1):end, permutation[i]] =
-            resampled_representation_joint[(l_x_plus_l_z+1):end, index]
+        if !only_dummy_exclusion_windows
+            preprocessed_data.representation_joint[(l_x_plus_l_z+1):end, permutation[i]] =
+                resampled_representation_joint[(l_x_plus_l_z+1):end, index]
+        end
         added_exclusion_windows[1, :, permutation[i]] = resampled_exclusion_windows[1, :, index]
     end
 
@@ -345,7 +402,7 @@ function preprocess_event_times(
     parameters::CoTETEParameters,
     target_events::Array{<:AbstractFloat};
     source_events::Array{<:AbstractFloat} = Float32[],
-    conditioning_events::Array{<:AbstractFloat} = Float32[],
+    conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = [Float32[]],
 )
 
     # We first need to figure out which target event will be the first and how many we will include
@@ -361,10 +418,12 @@ function preprocess_event_times(
                 index_of_target_start_event += 1
             end
         end
-        if parameters.l_z > 0
-            while conditioning_events[parameters.l_z] >
-                  target_events[parameters.index_of_target_start_event]
-                index_of_target_start_event += 1
+        if length(parameters.l_z) > 0
+            for i = 1:length(parameters.l_z)
+                while conditioning_events[i][parameters.l_z[i]] >
+                      target_events[index_of_target_start_event]
+                    index_of_target_start_event += 1
+                end
             end
         end
         num_target_events = length(target_events) - index_of_target_start_event
@@ -381,26 +440,36 @@ function preprocess_event_times(
     start_timestamp = target_events[index_of_target_start_event]
     end_timestamp = target_events[index_of_target_start_event+num_target_events]
 
+    array_of_event_arrays = [target_events]
+    array_of_dimensions = [parameters.l_x]
+    for i = 1:length(parameters.l_z)
+        push!(array_of_event_arrays, conditioning_events[i])
+        push!(array_of_dimensions, parameters.l_z[i])
+    end
+    push!(array_of_event_arrays, source_events)
+    push!(array_of_dimensions, parameters.l_y)
+
     representation_joint, exclusion_windows = make_embeddings_along_observation_time_points(
         target_events,
         index_of_target_start_event,
         num_target_events,
-        [target_events, conditioning_events, source_events],
-        [parameters.l_x, parameters.l_z, parameters.l_y],
+        array_of_event_arrays,
+        array_of_dimensions,
     )
 
     num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
     # place the sampel points uniform randomly between the start and the end.
-    sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
+    #sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
+    sample_points = collect(range(start_timestamp, stop = end_timestamp, length = num_samples))
     sort!(sample_points)
 
     sampled_representation_joint, sampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
             sample_points,
             1,
-            length(sample_points) - 2, #TODO Come back and look at this -2
-            [target_events, conditioning_events, source_events],
-            [parameters.l_x, parameters.l_z, parameters.l_y],
+            length(sample_points),
+            array_of_event_arrays,
+            array_of_dimensions,
         )
 
     preprocessed_data = PreprocessedData(
@@ -408,6 +477,7 @@ function preprocess_event_times(
         exclusion_windows,
         sampled_representation_joint,
         sampled_exclusion_windows,
+        [0.0 0.0; 0.0 0.0],
         start_timestamp,
         end_timestamp,
     )
