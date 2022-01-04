@@ -21,9 +21,11 @@ using StatsBase: sample
         metric::Metric = Cityblock()
         kraskov_noise_level::AbstractFloat = 1e-8
         transform_to_uniform::Bool = false
+        num_average_samples::Int = -1
         num_surrogates::Integer = 100
         surrogate_num_samples_ratio::AbstractFloat = 1.0
         k_perm::Integer = 10
+        add_dummy_exclusion_windows::Bool = false
     end
 
 - `l_x::Integer`: The number of intervals in the target process to use in the history embeddings.
@@ -41,7 +43,7 @@ using StatsBase: sample
   the first event for which there are sufficient preceding events in all processes such that the
   embeddings can be constructed. The number of target events will be set such that all time between
   this first event and the last target event is included.
--  `num_target_events_cap::Integer = -1`
+-  `num_target_events_cap::Integer = -1`: Upper limit on the number of target events to use.
 - `start_event::Integer = 1`: only used when `auto_find_start_and_num_events = false`. The index
   of the event in the target process from which to start the analysis.
 - `num_target_events::Integer = 0`: only used when
@@ -57,6 +59,9 @@ using StatsBase: sample
 - `kraskov_noise_level::AbstractFloat = 1e-8`: Adds a little noise to each value in the embeddings, as suggested
   by [Kraskov](https://doi.org/10.1103/PhysRevE.69.066138)
 - `transform_to_uniform::Bool = false`: Independently transform each dimension of the embeddings to be uniformly distributed.
+- `num_average_samples::Int = -1`: Number of target events over which to estimate the log densities, the average of which
+   will be the estimate of the TE. Setting this to -1 will result in all events being used. Note that `num_target_events` target
+   events will still be used in the estimation of the densities.
 - `num_surrogates::Integer = 100`: The number of surrogate processes to generate (and estimate the TE on)
   when finding a ``p`` value.
 - `surrogate_num_samples_ratio::AbstractFloat = 1.0`: Controls the number of samples used to
@@ -65,7 +70,8 @@ using StatsBase: sample
   Corresponds to ``N_{U, \\textrm{surrogate}}/N_X`` in [^1].
 - `k_perm::Integer = 5`: The number of neighbouring source embeddings from which to randomly select
   a replacement embedding in the local permutation scheme.
-
+- `add_dummy_exclusion_windows::Bool = false` If set to `true`, will add extra dynamic exclusion windows
+  to the non-surrogate embeddings, simulating the windows they would have gotten if they were surrogates.
 
 [^1] Shorten, D. P., Spinney, R. E., Lizier, J.T. (2020).
 [Estimating Transfer Entropy in Continuous Time Between Neural Spike Trains or Other Event-Based
