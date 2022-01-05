@@ -479,13 +479,13 @@ function preprocess_event_times(
         =#
         index_of_target_start_event = parameters.l_x + 1
         if parameters.l_y > 0
-            while source_events[parameters.l_y] > target_events[index_of_target_start_event]
+            while source_events[parameters.l_y] >= target_events[index_of_target_start_event]
                 index_of_target_start_event += 1
             end
         end
         if length(parameters.l_z) > 0
             for i = 1:length(parameters.l_z)
-                while conditioning_events[i][parameters.l_z[i]] >
+                while conditioning_events[i][parameters.l_z[i]] >=
                       target_events[index_of_target_start_event]
                     index_of_target_start_event += 1
                 end
