@@ -13,11 +13,19 @@ transform_marginals_to_uniform!
 ```
 
 ```@docs
+transform_marginals_to_uniform_on_cdf!
+```
+
+```@docs
 make_surrogate!
 ```
 
 ```@docs
 make_AIS_surrogate!
+```
+
+```@docs
+construct_sample_points_array
 ```
 
 ```@docs

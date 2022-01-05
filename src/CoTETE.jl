@@ -17,6 +17,8 @@ using StatsBase: sample
         start_event::Integer = 1
         num_target_events::Integer = 0
         num_samples_ratio::AbstractFloat = 1.0
+        sampling_method::String = "random_uniform"
+        jittered_sampling_noise::AbstractFloat = 5.0
         k_global::Integer = 5
         metric::Metric = Cityblock()
         kraskov_noise_level::AbstractFloat = 1e-8
@@ -35,7 +37,7 @@ using StatsBase: sample
 - `l_z::Integer = 0`: The number of intervals in the single conditioning process to use in the
   history embeddings. Corresponds to ``l_{Z_1}`` in [^1].
   !!! info "Single conditioning process"
-      Note that although the framework developed in [our paper](https://doi.org/10.1101/2020.06.16.154377)
+      Note that, although the framework developed in [our paper](https://doi.org/10.1101/2020.06.16.154377)
       considers an arbitrary number of extra
       conditioning processes, at present the framework can only handle a single such process.
       This will change in future releases.
@@ -54,6 +56,14 @@ using StatsBase: sample
   probability density of histories unconditional of the occurrence of events in the target process.
   This number of samples will be `num_samples_ratio * num_target_events`.
   Corresponds to ``N_U/N_X`` in [^1].
+- `sampling_method::String = "random_uniform"`: Method with which to place the random sampling points.
+   Setting it to `"random_uniform"` will place the samples uniformly randomly between the first and
+   last target events. `"fixed_interval"` will space them at a constant interval. `"jittered_target"` will
+   copy target spikes and add noise to their timestamps. This last method was developed for
+   [this paper](https://doi.org/10.1101/2021.06.29.450432). See section IV F of that paper for a discussion of
+   this method.
+- `jittered_sampling_noise::AbstractFloat = 5.0`: Width of the uniform jitter added to the target spike times used
+   in resampling when `sampling_method` is set to `"jittered_target"`.
 - `k_global::Integer = 5`: The number of nearest neighbours to consider in initial searches.
 - `metric::Metric = Cityblock()`: The metric to use for nearest neighbour and radius searches.
 - `kraskov_noise_level::AbstractFloat = 1e-8`: Adds a little noise to each value in the embeddings, as suggested
@@ -90,6 +100,8 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     start_event::Integer = 1
     num_target_events::Integer = 0
     num_samples_ratio::AbstractFloat = 1.0
+    sampling_method::String = "random_uniform"
+    jittered_sampling_noise::AbstractFloat = 5.0
     k_global::Integer = 5
     metric::Metric = Cityblock()
     kraskov_noise_level::AbstractFloat = 1e-6
@@ -302,7 +314,7 @@ true
 Lets try some other parameters
 
 ```jldoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
-julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1, transform_to_uniform = true, k_perm = 20);
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1, transform_to_uniform = true, k_perm = 20, sampling_method = "jittered_target");
 
 julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
 (0.0, 0.5)
@@ -422,8 +434,6 @@ end
     estimate_AIS_from_event_times(
       parameters::CoTETEParameters,
       target_events::Array{<:AbstractFloat},
-      source_events::Array{<:AbstractFloat};
-      conditioning_events::Array{<:AbstractFloat} = Float32[],
     )
 
 Estimate the Active Information Storage (AIS) from lists of raw event times.
@@ -464,9 +474,8 @@ end
 """
     estimate_AIS_and_p_value_from_event_times(
       parameters::CoTETEParameters,
-      target_events::Array{<:AbstractFloat},
-      source_events::Array{<:AbstractFloat};
-      conditioning_events::Array{<:AbstractFloat} = Float32[],
+      target_events::Array{<:AbstractFloat};
+      return_surrogate_AIS_values::Bool = false,
     )
 
 Estimate the Active Information Storage (AIS) along with the ``p`` value of the AIS being different
@@ -545,9 +554,17 @@ function estimate_AIS_and_p_value_from_event_times(
 end
 
 """
-    estimate_TE_from_preprocessed_data(parameters::CoTETEParameters, preprocessed_data::PreprocessedData)
+    estimate_TE_from_preprocessed_data(
+       parameters::CoTETEParameters,
+       preprocessed_data::PreprocessedData;
+       AIS_only::Bool = false,
+    )
 
 calculates the TE using the preprocessed data and the given parameters.
+
+Note that this is an implementation of the algorithm described in Box 1 of our paper
+[our paper](https://doi.org/10.1101/2020.06.16.154377). Consulting that algorithm and the surrounding
+text is recommended.
 
 ```jldoctest estimate_TE_from_preprocessed_data; filter = r"-?([0-9]+.[0-9]+)|([0-9]+e-?[0-9]+)"
 julia> source = sort(1e4*rand(Int(1e4)));
@@ -588,22 +605,22 @@ function estimate_TE_from_preprocessed_data(
     sampled_representation_conditionals =
         preprocessed_data.sampled_representation_joint[1:(l_x_plus_l_z), :]
 
-
+    # Populate the search trees which will be used for estimating the densities
     tree_joint = NearestNeighbors.KDTree(
         preprocessed_data.representation_joint,
         parameters.metric,
         reorder = false,
     )
-
     tree_sampled_joint = NearestNeighbors.KDTree(
         preprocessed_data.sampled_representation_joint,
         parameters.metric,
         reorder = false,
     )
-
-    tree_conditionals =
-        NearestNeighbors.KDTree(representation_conditionals, parameters.metric, reorder = false)
-
+    tree_conditionals = NearestNeighbors.KDTree(
+        representation_conditionals,
+        parameters.metric,
+        reorder = false,
+    )
     tree_sampled_conditionals = NearestNeighbors.KDTree(
         sampled_representation_conditionals,
         parameters.metric,
@@ -612,6 +629,10 @@ function estimate_TE_from_preprocessed_data(
 
     TE = 0.0
 
+    #=
+      If we are not averaging over all target events, then we draw indices randomly. Otherwise, we
+      make a set with an index for each event.
+    =#
     if parameters.num_average_samples == -1 ||
        (size(preprocessed_data.representation_joint, 2) < parameters.num_average_samples)
         iteration_indices = collect(1:1:size(preprocessed_data.representation_joint, 2))
@@ -679,6 +700,10 @@ function estimate_TE_from_preprocessed_data(
             sampled_representation_conditionals[:, indices_sampled_conditionals_from_radius_search],
         ))
 
+        #=
+          Add the contributions from this event.
+          Corresponds to half the terms of line 17 of Box 1 of doi.org/10.1101/2020.06.16.154377 .
+        =#
         TE += (
             l_x_plus_l_z * log(radius_conditionals_inside_first_radius) -
             l_x_plus_l_z * log(radius_sampled_conditionals_inside_first_radius) -
@@ -689,7 +714,7 @@ function estimate_TE_from_preprocessed_data(
         if !AIS_only
             #=
               We now estimate the contribution from the first
-              KL divergence term in equation 9 of doi.org/10.1101/2020.06.16.154377.
+              KL divergence term in equation 9 of doi.org/10.1101/2020.06.16.154377 .
             =#
             indices_joint_from_knn_search, radii_joint_from_knn_search = NearestNeighbors.knn(
                 tree_joint,
@@ -745,6 +770,10 @@ function estimate_TE_from_preprocessed_data(
                 ],
             ))
 
+            #=
+              Add the contributions from this event.
+              Corresponds to half the terms of line 17 of Box 1 of doi.org/10.1101/2020.06.16.154377 .
+            =#
             TE += (
                 -(l_x_plus_l_z + l_y)log(radius_joint_inside_first_radius) +
                 (l_x_plus_l_z + l_y)log(radius_sampled_joint_inside_first_radius) +
@@ -763,6 +792,10 @@ function estimate_TE_from_preprocessed_data(
             )
     end
 
+    #=
+      Divide by the number of contributions to get an average and normalize by the rate.
+      Corresponds to line 19 of Box 1 of doi.org/10.1101/2020.06.16.154377 .
+    =#
     return (
         (TE * size(preprocessed_data.representation_joint, 2)) / (
             length(iteration_indices) *
