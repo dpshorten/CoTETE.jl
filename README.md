@@ -10,7 +10,7 @@ It is easy to call this package from **Python**. See this [tutorial](https://dps
 ## Introduction
 
 Transfer entropy (TE) is a measure of information flow between time series. It can be used to
-infer functional and effective networks. 
+infer functional and effective networks.
 
 This package allows one to estimate the TE between event-based time series
 (such as spike trains or social media post times) in continuous time (that is, without discretising
@@ -57,7 +57,7 @@ Clone this repo (make sure to include the --recurse-submodules flag so that the 
 package gets included as well as the --branch flag to avoid recent potentially unstable changes).
 
 ```console
-david@home:~$ git clone --recurse-submodules --branch v0.1 https://github.com/dpshorten/CoTETE.jl.git
+david@home:~$ git clone --recurse-submodules --branch v0.2 https://github.com/dpshorten/CoTETE.jl.git
 ```
 
 make sure that CoTETE.jl/src/ is on your JULIA_LOAD_PATH. eg:
