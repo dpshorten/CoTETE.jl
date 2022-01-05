@@ -6,10 +6,8 @@ include("NearestNeighbors.jl/src/NearestNeighbors.jl")
 
 """
     representation_joint::Array{<:AbstractFloat, 2}
-    representation_conditionals::Array{<:AbstractFloat, 2}
     exclusion_windows::Array{<:AbstractFloat, 3}
     sampled_representation_joint::Array{<:AbstractFloat, 2}
-    sampled_representation_conditionals::Array{<:AbstractFloat, 2}
     sampled_exclusion_windows::Array{<:AbstractFloat, 3}
     start_timestamp::AbstractFloat
     end_timestamp::AbstractFloat
@@ -155,7 +153,7 @@ function make_embeddings_along_observation_time_points(
     embeddings = []
     exclusion_windows = []
     for observation_time_point in
-        observation_time_points[start_observation_time_point:(start_observation_time_point+num_observation_time_points_to_use - 1)]
+        observation_time_points[start_observation_time_point:(start_observation_time_point+num_observation_time_points_to_use-1)]
         # Update the position of each tracker variable
         for i = 1:length(trackers)
             while (trackers[i] < length(event_time_arrays[i])) &&
@@ -186,7 +184,7 @@ end
 """
     function transform_marginals_to_uniform!(preprocessed_data::PreprocessedData)
 
-Independently transforms each dimension of the history embeddings to be uniformly distributed.
+    Independently transforms each dimension of the history embeddings to be uniformly distributed.
 """
 function transform_marginals_to_uniform!(preprocessed_data::PreprocessedData)
 
@@ -208,6 +206,15 @@ function transform_marginals_to_uniform!(preprocessed_data::PreprocessedData)
     )
 end
 
+"""
+    function transform_marginals_to_uniform_on_cdf!(
+        preprocessed_data::PreprocessedData,
+        history_embeddings::Array{<:AbstractFloat,2},
+    )
+
+    Helper method reused for transforming both the embeddings sampled at events and those sampled
+    randomly.
+"""
 function transform_marginals_to_uniform_on_cdf!(
     preprocessed_data::PreprocessedData,
     history_embeddings::Array{<:AbstractFloat,2},
@@ -268,12 +275,14 @@ function make_surrogate!(
     num_sample_points = Int(round(
         parameters.surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2),
     ))
-    sample_points =
-        preprocessed_data.start_timestamp .+ (
-            (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp) *
-            rand(num_sample_points)
-        )
-    sort!(sample_points)
+
+    sample_points = construct_sample_points_array(
+        parameters,
+        num_sample_points,
+        preprocessed_data.start_timestamp,
+        preprocessed_data.end_timestamp,
+        target_events,
+    )
 
     array_of_event_arrays = [target_events]
     array_of_dimensions = [parameters.l_x]
@@ -348,20 +357,26 @@ function make_AIS_surrogate!(
     preprocessed_data::PreprocessedData,
     target_events::Array{<:AbstractFloat},
 )
-    num_resample_points = Int(round(
-        parameters.surrogate_num_samples_ratio * size(preprocessed_data.representation_joint, 2),
-    ))
-    resample_points =
-        preprocessed_data.start_timestamp .+ (
-            (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp) *
-            rand(num_resample_points + 2)
-        )
-    sort!(resample_points)
+    num_resample_points = min(
+        Int(round(
+            parameters.surrogate_num_samples_ratio *
+            size(preprocessed_data.representation_joint, 2),
+        )),
+        size(preprocessed_data.representation_joint, 2),
+    )
+    resample_points = construct_sample_points_array(
+        parameters,
+        num_resample_points,
+        preprocessed_data.start_timestamp,
+        preprocessed_data.end_timestamp,
+        target_events,
+    )
+
     resampled_representation_joint, resampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
             resample_points,
             1,
-            length(resample_points) - 2,
+            length(resample_points),
             [target_events, Float64[], Float64[]],
             [parameters.l_x, 0, 0],
         )
@@ -372,6 +387,56 @@ function make_AIS_surrogate!(
         preprocessed_data.exclusion_windows[:, :, i] =
             resampled_exclusion_windows[:, :, shuffled_indices_of_resample[i]]
     end
+end
+
+"""
+    function construct_sample_points_array(
+        parameters::CoTETEParameters,
+        num_samples::Integer,
+        start_timestamp::AbstractFloat,
+        end_timestamp::AbstractFloat,
+        target_events::Array{<:AbstractFloat}
+    )
+
+    Constructs the array of random sample points according to the chosen method.
+"""
+function construct_sample_points_array(
+    parameters::CoTETEParameters,
+    num_samples::Integer,
+    start_timestamp::AbstractFloat,
+    end_timestamp::AbstractFloat,
+    target_events::Array{<:AbstractFloat},
+)
+
+    if !(parameters.sampling_method in ["random_uniform", "fixed_interval", "jittered_target"])
+        error("sampling_method must be one of: \"random_uniform\", \"fixed_interval\" or \"jittered_target\"")
+    elseif parameters.sampling_method == "random_uniform"
+        sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
+        sort!(sample_points)
+    elseif parameters.sampling_method == "fixed_interval"
+        sample_points = collect(range(start_timestamp, stop = end_timestamp, length = num_samples))
+    else
+        sample_points = []
+        temp_target_events = deepcopy(target_events)
+        temp_target_events = temp_target_events[temp_target_events.>=start_timestamp]
+        temp_target_events = temp_target_events[temp_target_events.<=end_timestamp]
+        for i = 1:Int(parameters.surrogate_num_samples_ratio)
+            append!(sample_points, temp_target_events)
+        end
+        sample_points =
+            sample_points +
+            parameters.jittered_sampling_noise .* (rand(length(sample_points)) .- 0.5)
+        sort!(sample_points)
+        for i = 1:length(sample_points)
+            if sample_points[i] < start_timestamp || sample_points[i] > end_timestamp
+                sample_points[i] = start_timestamp + ((end_timestamp - start_timestamp) * rand())
+            else
+                break
+            end
+        end
+    end
+
+    return sample_points
 end
 
 """
@@ -414,13 +479,13 @@ function preprocess_event_times(
         =#
         index_of_target_start_event = parameters.l_x + 1
         if parameters.l_y > 0
-            while source_events[parameters.l_y] > target_events[index_of_target_start_event]
+            while source_events[parameters.l_y] >= target_events[index_of_target_start_event]
                 index_of_target_start_event += 1
             end
         end
         if length(parameters.l_z) > 0
             for i = 1:length(parameters.l_z)
-                while conditioning_events[i][parameters.l_z[i]] >
+                while conditioning_events[i][parameters.l_z[i]] >=
                       target_events[index_of_target_start_event]
                     index_of_target_start_event += 1
                 end
@@ -438,7 +503,7 @@ function preprocess_event_times(
     end
 
     start_timestamp = target_events[index_of_target_start_event]
-    end_timestamp = target_events[index_of_target_start_event + num_target_events - 1]
+    end_timestamp = target_events[index_of_target_start_event+num_target_events-1]
 
     array_of_event_arrays = [target_events]
     array_of_dimensions = [parameters.l_x]
@@ -458,10 +523,14 @@ function preprocess_event_times(
     )
 
     num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
-    # place the sampel points uniform randomly between the start and the end.
-    sample_points = start_timestamp .+ ((end_timestamp - start_timestamp) * rand(num_samples))
-    #sample_points = collect(range(start_timestamp, stop = end_timestamp, length = num_samples))
-    sort!(sample_points)
+
+    sample_points = construct_sample_points_array(
+        parameters,
+        num_samples,
+        start_timestamp,
+        end_timestamp,
+        target_events,
+    )
 
     sampled_representation_joint, sampled_exclusion_windows =
         make_embeddings_along_observation_time_points(
