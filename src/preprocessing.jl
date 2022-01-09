@@ -45,6 +45,7 @@ mutable struct PreprocessedData
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
     sampled_exclusion_windows::Array{<:AbstractFloat,3}
+    raw_event_times::Array{<:AbstractFloat,1}
     empirical_cdf::Array{<:AbstractFloat,2}
     start_timestamp::AbstractFloat
     end_timestamp::AbstractFloat
@@ -96,7 +97,6 @@ function make_one_embedding(
         for j = 2:embedding_lengths[i]
             push!(
                 embedding,
-                #observation_time_point -
                 event_time_arrays[i][most_recent_event_indices[i]-j+2] -
                 event_time_arrays[i][most_recent_event_indices[i]-j+1],
             )
@@ -161,6 +161,7 @@ function make_embeddings_along_observation_time_points(
                 trackers[i] += 1
             end
         end
+
         embedding, start_time = make_one_embedding(
             observation_time_point,
             event_time_arrays,
@@ -426,14 +427,12 @@ function construct_sample_points_array(
         sample_points =
             sample_points +
             parameters.jittered_sampling_noise .* (rand(length(sample_points)) .- 0.5)
-        sort!(sample_points)
         for i = 1:length(sample_points)
-            if sample_points[i] < start_timestamp || sample_points[i] > end_timestamp
+            if sample_points[i] <= start_timestamp || sample_points[i] >= end_timestamp
                 sample_points[i] = start_timestamp + ((end_timestamp - start_timestamp) * rand())
-            else
-                break
             end
         end
+        sort!(sample_points)
     end
 
     return sample_points
@@ -546,6 +545,7 @@ function preprocess_event_times(
         exclusion_windows,
         sampled_representation_joint,
         sampled_exclusion_windows,
+        target_events[index_of_target_start_event:(index_of_target_start_event + num_target_events - 1)],
         [0.0 0.0; 0.0 0.0],
         start_timestamp,
         end_timestamp,

@@ -6,6 +6,7 @@ using Parameters
 using Distances: evaluate, colwise, Metric, Cityblock
 using SpecialFunctions: digamma, gamma
 using StatsBase: sample
+using Statistics: mean
 
 """
     struct CoTETEParameters
@@ -335,7 +336,32 @@ We create the source process as before. Howevever, the target process is
 originally created as an homogeneous Poisson process with rate 10, before the thinning algorithm
 is applied to it, in order to provide the dependence on the source.
 
-```jdoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
+```@meta
+DocTestSetup = quote
+       function thin_target(source, target, target_rate)
+    	   start_index = 1
+    	   while target[start_index] < source[1]
+           	 start_index += 1
+    	   end
+    	   target = target[start_index:end]
+	       new_target = Float64[]
+    	   index_of_last_source = 1
+    	   for event in target
+               while index_of_last_source < length(source) && source[index_of_last_source + 1] < event
+               	     index_of_last_source += 1
+               end
+               distance_to_last_source = event - source[index_of_last_source]
+               lambda = 0.5 + 5exp(-50(distance_to_last_source - 0.5)^2) - 5exp(-50(-0.5)^2)
+               if rand() < lambda/target_rate
+               	  push!(new_target, event)
+               end
+           end
+    	   return new_target
+       end
+end
+```
+
+```jldoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
 julia> source = sort(1e3*rand(Int(1e3)));
 
 julia> target = sort(1e3*rand(Int(1e4)));
@@ -353,19 +379,22 @@ true
 
 Lets try with some other parameters
 
-```jdoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
-
+```jldoctest estimate_TE_from_event_times; filter = r"\\(.*\\)"
 julia> parameters = CoTETE.CoTETEParameters(l_x = 3,
                                             l_y = 1,
                                             transform_to_uniform = true,
                                             k_global = 7,
                                             num_samples_ratio = 5.0,
-                                            surrogate_num_samples_ratio = 5.0);
+                                            surrogate_num_samples_ratio = 5.0,
+                                            sampling_method = "jittered_target",
+                                            jittered_sampling_noise = 1.0);
 
-julia> TE, p = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source)
-(0.5, 0.01)
+julia> TE, p, locals = CoTETE.estimate_TE_and_p_value_from_event_times(parameters, target, source, return_locals = true);
 
 julia> p < 0.05 # For Doctesting purposes. Should fail very rarely.
+true
+
+julia> abs(locals[1]) > 1e-10 # For Doctesting. Check that the locals aren't all zero.
 true
 ```
 
@@ -376,6 +405,7 @@ function estimate_TE_and_p_value_from_event_times(
     source_events::Array{<:AbstractFloat};
     conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = [Float32[]],
     return_surrogate_TE_values::Bool = false,
+    return_locals::Bool = false,
 )
 
     preprocessed_data = CoTETE.preprocess_event_times(
@@ -397,9 +427,16 @@ function estimate_TE_and_p_value_from_event_times(
         )
     end
 
-    TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data)
+    if return_locals
+        TE, locals = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data, return_locals = return_locals)
+    else
+        TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, first_calc_preprocessed_data)
+    end
 
     surrogate_TE_values = zeros(parameters.num_surrogates)
+    if return_locals
+        surrogate_locals = zeros(parameters.num_surrogates, length(locals))
+    end
     #Threads.@threads
     for i = 1:parameters.num_surrogates
         surrogate_preprocessed_data = deepcopy(preprocessed_data)
@@ -410,8 +447,14 @@ function estimate_TE_and_p_value_from_event_times(
             source_events,
             conditioning_events = conditioning_events,
         )
-        surrogate_TE_values[i] =
-            CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data)
+        if return_locals
+            surrogate_TE_values[i], temp_surrogate_locals =
+                CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data, return_locals = return_locals)
+            surrogate_locals[i, :] = temp_surrogate_locals
+        else
+            surrogate_TE_values[i] =
+                CoTETE.estimate_TE_from_preprocessed_data(parameters, surrogate_preprocessed_data, return_locals = return_locals)
+        end
     end
 
     p = 0
@@ -422,8 +465,14 @@ function estimate_TE_and_p_value_from_event_times(
     end
     p /= parameters.num_surrogates
 
-    if return_surrogate_TE_values
+    if return_surrogate_TE_values && return_locals
+        locals = locals .- dropdims(mean(surrogate_locals, dims = 1), dims = 1)
+        return TE, p, surrogate_TE_values, locals, surrogate_locals, preprocessed_data.raw_event_times
+    elseif return_surrogate_TE_values
         return TE, p, surrogate_TE_values
+    elseif return_locals
+        locals = locals .- dropdims(mean(surrogate_locals, dims = 1), dims = 1)
+        return TE, p, locals, preprocessed_data.raw_event_times
     else
         return TE, p
     end
@@ -450,8 +499,7 @@ julia> target = sort(1e4*rand(Int(1e4)));
 
 julia> parameters = CoTETE.CoTETEParameters(l_x = 1);
 
-julia> AIS = CoTETE.estimate_AIS_from_event_times(parameters, target)
-0.0
+julia> AIS = CoTETE.estimate_AIS_from_event_times(parameters, target);
 
 julia> abs(AIS - 0) < 0.05 # For Doctesting purposes
 true
@@ -575,8 +623,7 @@ julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
 
 julia> preprocessed_data = CoTETE.preprocess_event_times(parameters, target, source_events = source);
 
-julia> TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data)
-0.0
+julia> TE = CoTETE.estimate_TE_from_preprocessed_data(parameters, preprocessed_data);
 
 julia> abs(TE - 0) < 0.05 # For Doctesting purposes
 true
@@ -587,6 +634,7 @@ function estimate_TE_from_preprocessed_data(
     parameters::CoTETEParameters,
     preprocessed_data::PreprocessedData;
     AIS_only::Bool = false,
+    return_locals::Bool = false,
 )
 
     # Lets declare these to make the rest of this function less verbose
@@ -627,8 +675,6 @@ function estimate_TE_from_preprocessed_data(
         reorder = false,
     )
 
-    TE = 0.0
-
     #=
       If we are not averaging over all target events, then we draw indices randomly. Otherwise, we
       make a set with an index for each event.
@@ -642,6 +688,12 @@ function estimate_TE_from_preprocessed_data(
             parameters.num_average_samples,
             replace = false,
         )
+    end
+
+    TE = 0.0
+    locals = []
+    if return_locals
+        locals = zeros(length(iteration_indices))
     end
 
     for i in iteration_indices
@@ -704,12 +756,16 @@ function estimate_TE_from_preprocessed_data(
           Add the contributions from this event.
           Corresponds to half the terms of line 17 of Box 1 of doi.org/10.1101/2020.06.16.154377 .
         =#
-        TE += (
+        neg_local_AIS = (
             l_x_plus_l_z * log(radius_conditionals_inside_first_radius) -
             l_x_plus_l_z * log(radius_sampled_conditionals_inside_first_radius) -
             digamma(size(indices_conditionals_from_radius_search)[1]) +
             digamma(size(indices_sampled_conditionals_from_radius_search)[1])
         )
+        TE += neg_local_AIS
+        if return_locals
+            locals[i] += neg_local_AIS
+        end
 
         if !AIS_only
             #=
@@ -774,12 +830,16 @@ function estimate_TE_from_preprocessed_data(
               Add the contributions from this event.
               Corresponds to half the terms of line 17 of Box 1 of doi.org/10.1101/2020.06.16.154377 .
             =#
-            TE += (
+            local_second_component = (
                 -(l_x_plus_l_z + l_y)log(radius_joint_inside_first_radius) +
                 (l_x_plus_l_z + l_y)log(radius_sampled_joint_inside_first_radius) +
                 digamma(size(indices_joint_from_radius_search)[1]) -
                 digamma(size(indices_sampled_joint_from_radius_search)[1])
             )
+            TE += local_second_component
+            if return_locals
+                locals[i] += local_second_component
+            end
         end
     end
 
@@ -796,12 +856,18 @@ function estimate_TE_from_preprocessed_data(
       Divide by the number of contributions to get an average and normalize by the rate.
       Corresponds to line 19 of Box 1 of doi.org/10.1101/2020.06.16.154377 .
     =#
-    return (
+    normalised_TE = (
         (TE * size(preprocessed_data.representation_joint, 2)) / (
             length(iteration_indices) *
             (preprocessed_data.end_timestamp - preprocessed_data.start_timestamp)
         )
     )
+
+    if return_locals
+        return normalised_TE, locals
+    else
+        return normalised_TE
+    end
 
 end
 
