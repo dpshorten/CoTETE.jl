@@ -45,6 +45,7 @@ mutable struct PreprocessedData
     exclusion_windows::Array{<:AbstractFloat,3}
     sampled_representation_joint::Array{<:AbstractFloat,2}
     sampled_exclusion_windows::Array{<:AbstractFloat,3}
+    raw_event_times::Array{<:AbstractFloat,1}
     empirical_cdf::Array{<:AbstractFloat,2}
     start_timestamp::AbstractFloat
     end_timestamp::AbstractFloat
@@ -96,7 +97,6 @@ function make_one_embedding(
         for j = 2:embedding_lengths[i]
             push!(
                 embedding,
-                #observation_time_point -
                 event_time_arrays[i][most_recent_event_indices[i]-j+2] -
                 event_time_arrays[i][most_recent_event_indices[i]-j+1],
             )
@@ -132,12 +132,8 @@ julia> target = cumsum(ones(20)); # target is {1, 2, 3, ...}
 
 julia> observation_points = cumsum(ones(20)) .- 0.75; # observation points are {0.25, 1.25, 2.25, ...}
 
-julia> CoTETE.make_embeddings_along_observation_time_points(observation_points, 5, 3, [target, source, conditional], [2, 1, 1])
-([0.25 0.25 0.25; 1.0 1.0 1.0; 0.75 0.75 0.75; 0.5 0.5 0.5], [3.0 4.25]
-
-[4.0 5.25]
-
-[5.0 6.25])
+julia> CoTETE.make_embeddings_along_observation_time_points(observation_points, 5, 3, [target, source, conditional], [2, 1, 1], true)
+([0.25 0.25 0.25; 1.0 1.0 1.0; 0.75 0.75 0.75; 0.5 0.5 0.5], [3.0 4.25;;; 4.0 5.25;;; 5.0 6.25])
 
 ```
 """
@@ -147,6 +143,7 @@ function make_embeddings_along_observation_time_points(
     num_observation_time_points_to_use::Integer,
     event_time_arrays::Array{<:Array{<:AbstractFloat,1},1},
     embedding_lengths::Array{<:Integer},
+    use_exclusion_windows::Bool
 )
     # Variables that track the index of the most recent event in each process
     trackers = ones(Integer, length(embedding_lengths))
@@ -161,6 +158,7 @@ function make_embeddings_along_observation_time_points(
                 trackers[i] += 1
             end
         end
+
         embedding, start_time = make_one_embedding(
             observation_time_point,
             event_time_arrays,
@@ -168,7 +166,12 @@ function make_embeddings_along_observation_time_points(
             embedding_lengths,
         )
         push!(embeddings, embedding)
-        push!(exclusion_windows, [start_time, observation_time_point])
+        if use_exclusion_windows
+            push!(exclusion_windows, [start_time, observation_time_point])
+        else
+            # We effectively nullify the effect of the exclusion windows by giving them 0 width.
+            push!(exclusion_windows, [observation_time_point, observation_time_point])
+        end
     end
     # Conver the embeddings from an array of arrays to a 2d array.
     embeddings = hcat(embeddings...)
@@ -300,6 +303,7 @@ function make_surrogate!(
             length(sample_points) - 2, #TODO Come back and look at this -2
             array_of_event_arrays,
             array_of_dimensions,
+            parameters.use_exclusion_windows
         )
 
     if parameters.transform_to_uniform
@@ -379,6 +383,7 @@ function make_AIS_surrogate!(
             length(resample_points),
             [target_events, Float64[], Float64[]],
             [parameters.l_x, 0, 0],
+            parameters.use_exclusion_windows,
         )
     shuffled_indices_of_resample = shuffle(collect(1:size(resampled_representation_joint, 2)))
     for i = 1:size(preprocessed_data.representation_joint, 2)
@@ -426,14 +431,12 @@ function construct_sample_points_array(
         sample_points =
             sample_points +
             parameters.jittered_sampling_noise .* (rand(length(sample_points)) .- 0.5)
-        sort!(sample_points)
         for i = 1:length(sample_points)
-            if sample_points[i] < start_timestamp || sample_points[i] > end_timestamp
+            if sample_points[i] <= start_timestamp || sample_points[i] >= end_timestamp
                 sample_points[i] = start_timestamp + ((end_timestamp - start_timestamp) * rand())
-            else
-                break
             end
         end
+        sort!(sample_points)
     end
 
     return sample_points
@@ -520,6 +523,7 @@ function preprocess_event_times(
         num_target_events,
         array_of_event_arrays,
         array_of_dimensions,
+        parameters.use_exclusion_windows
     )
 
     num_samples = Int(round(parameters.num_samples_ratio * num_target_events))
@@ -539,6 +543,7 @@ function preprocess_event_times(
             length(sample_points),
             array_of_event_arrays,
             array_of_dimensions,
+            parameters.use_exclusion_windows
         )
 
     preprocessed_data = PreprocessedData(
@@ -546,6 +551,7 @@ function preprocess_event_times(
         exclusion_windows,
         sampled_representation_joint,
         sampled_exclusion_windows,
+        target_events[index_of_target_start_event:(index_of_target_start_event + num_target_events - 1)],
         [0.0 0.0; 0.0 0.0],
         start_timestamp,
         end_timestamp,
