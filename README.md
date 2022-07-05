@@ -164,6 +164,10 @@ For both of these examples, increasing the number of events in the processes wil
 
 Kraskov-style estimators of information-theoretic quantities (such as this one) can produce negative values. In TE estimation this is most commonly encountered when the target present state has a strong dependence on the target history but is only weakly dependent (or conditionally independent) of the source history. This leads to a violation of the assumption of local uniformity and a negative bias. This issue is discussed in detail in the 9th paragraph of the Discussion section of [the paper](https://doi.org/10.1371/journal.pcbi.1008054) proposing this estimator. A good discussion of it can also be found in the [JIDT documentation](https://github.com/jlizier/jidt/wiki/FAQs#what-does-it-mean-if-i-get-negative-results-from-a-kraskov-stoegbauer-grassberger-estimator). As mentioned in these resources, the issue can be easily resolved by debiasing the estimator by subtracting the mean of the surrogate TE estimates from the estimated value. This debiasing procedure should be incorporated as an option in this library in the near future.
 
+## Note on short event sequences
+
+When using the estimator on very short event sequences, it is recommended to set the variable ```use_exclusion_windows``` in the parameters struct to ```false```. In very short event sequences, it is possible for all history embedding vectors to overlap. This could result in searches excluding all candidate neighbours, resulting in the estimator returning an error. See the Methods subsection `Handling dynamic correlations' in [1] for more details on the use of these windows.
+
 ## Assistance
 
 If you have any issues using this software, please add an issue here on github, or email me at david.shorten@sydney.edu.au
