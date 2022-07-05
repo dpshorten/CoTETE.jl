@@ -28,6 +28,7 @@ using Statistics: mean
         num_surrogates::Integer = 100
         surrogate_num_samples_ratio::AbstractFloat = 1.0
         k_perm::Integer = 10
+        use_exclusion_windows::Bool = true
         add_dummy_exclusion_windows::Bool = false
     end
 
@@ -81,6 +82,8 @@ using Statistics: mean
   Corresponds to ``N_{U, \\textrm{surrogate}}/N_X`` in [^1].
 - `k_perm::Integer = 5`: The number of neighbouring source embeddings from which to randomly select
   a replacement embedding in the local permutation scheme.
+- `use_exclusion_windows::Bool = true`: Whether or not to use dynamic exclusion windows. An explanation
+  of these windows can be found in the Methods subsection `Handling dynamic correlations' in [^1].
 - `add_dummy_exclusion_windows::Bool = false` If set to `true`, will add extra dynamic exclusion windows
   to the non-surrogate embeddings, simulating the windows they would have gotten if they were surrogates.
 
@@ -111,6 +114,7 @@ processes](https://doi.org/10.1103/PhysRevE.95.032319). Physical Review E, 95(3)
     num_surrogates::Integer = 100
     surrogate_num_samples_ratio::AbstractFloat = 1.0
     k_perm::Integer = 10
+    use_exclusion_windows::Bool = true
     add_dummy_exclusion_windows::Bool = false
 end
 

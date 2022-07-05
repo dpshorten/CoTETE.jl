@@ -57,7 +57,7 @@ Clone this repo (make sure to include the --recurse-submodules flag so that the 
 package gets included as well as the --branch flag to avoid recent potentially unstable changes).
 
 ```console
-david@home:~$ git clone --recurse-submodules --branch v0.2.2 https://github.com/dpshorten/CoTETE.jl.git
+david@home:~$ git clone --recurse-submodules --branch v0.2.3 https://github.com/dpshorten/CoTETE.jl.git
 ```
 
 make sure that CoTETE.jl/src/ is on your JULIA_LOAD_PATH. eg:
@@ -83,6 +83,7 @@ julia> Pkg.add("Distances")
 julia> Pkg.add("StaticArrays")
 julia> Pkg.add("SpecialFunctions")
 julia> Pkg.add("Parameters")
+julia> Pkg.add("StatsBase")
 ```
 For the first example, lets estimate the TE between uncoupled homogeneous Poisson processes. This
 is covered in section II A of [1].
@@ -99,7 +100,8 @@ We can now estimate the TE between these processes, with history embeddings of l
 
 ```julia
 julia> import CoTETE
-julia> CoTETE.estimate_TE_from_event_times(target, source, 1, 1)
+julia> parameters = CoTETE.CoTETEParameters(l_x = 1, l_y = 1);
+julia> CoTETE.estimate_TE_from_event_times(parameters, target, source)
 ```
 
 The answer should be close to 0.
@@ -152,7 +154,7 @@ julia> target = thin_target(source, target, 10);
 We can now estimate the TE
 
 ```julia
-julia> CoTETE.estimate_TE_from_event_times(target, source, 1, 1)
+julia> CoTETE.estimate_TE_from_event_times(parameters, target, source)
 ```
 The answer should be close to 0.5.
 
