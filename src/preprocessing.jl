@@ -473,6 +473,12 @@ function preprocess_event_times(
     conditioning_events::Array{<:Array{<:AbstractFloat,1},1} = [Float32[]],
 )
 
+   @assert issorted(target_events) "The array of target events is not sorted"
+   @assert issorted(source_events) "The array of source events is not sorted"
+   for conditioning_events_array in conditioning_events
+       @assert issorted(conditioning_events_array) "One array of conditioning events is not sorted"
+   end
+
     # We first need to figure out which target event will be the first and how many we will include
     # in the analysis.
     if parameters.auto_find_start_and_num_events
